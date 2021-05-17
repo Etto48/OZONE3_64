@@ -18,17 +18,16 @@ BITS 16
 
 global bootstrap
 bootstrap:
+    cli
     jmp 0x0000:.FlushCS               ; Some BIOS' may load us at 0x0000:0x7C00 while other may load us at 0x07C0:0x0000.
                                       ; Do a far jump to fix this issue, and reload CS to 0x0000.
  
-.FlushCS:   
+.FlushCS:  
     xor ax, ax
- 
     ; Set up segment registers.
     mov ss, ax
     ; Set up stack so that it starts below bootstrap.
-    mov sp, bootstrap
- 
+    mov sp, bootstrap 
     mov ds, ax
     mov es, ax
     mov fs, ax

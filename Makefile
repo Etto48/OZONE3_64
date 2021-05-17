@@ -18,19 +18,26 @@ CXX_ARGS	:=	-g -O3
 SHARED_FLAGS = -fno-builtin -O2 -nostdinc -nostdlib -ffreestanding -g -Wall -Wextra \
                -Werror -I. -MMD -mno-red-zone
 
-CFLAGS = -ffreestanding -mcmodel=large -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -nostdlib -lgcc
-ASFLAGS = -f elf64
+CFLAGS = -ffreestanding -mcmodel=large -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -nostdlib -lgcc -g
+ASFLAGS = -felf64 -F dwarf -g
 
 version		:=	3.0.0
 SO_NAME		:=	ozone-$(version)
 SO			:=	$(BIN_DIR)/$(SO_NAME).bin
 
-.PHONY: clean test
+ISO			:=	$(BIN_DIR)/$(SO_NAME).iso
+
+.PHONY: clean test disk iso
 
 all: $(SO)
-test: clean $(SO)
+test: clean $(ISO)
 	@echo Starting Emulation
-	@qemu-system-x86_64 -kernel $(SO) -machine type=pc-i440fx-3.1
+	@qemu-system-x86_64 -cdrom $(ISO)
+dbg: clean $(ISO)
+	@echo Starting Debug
+	@gnome-terminal -e 'gdb $(SO) --eval-command="target remote localhost:3117"' &
+	@qemu-system-x86_64 -cdrom $(ISO) -gdb tcp::3117 -S
+
 
 $(SO): $(linker) $(OBJFILES)
 	@echo Creating $@
@@ -46,8 +53,19 @@ $(OBJ_DIR)/%.cpp.o: $(SRC_DIR)/%.cpp
 
 $(OBJ_DIR)/bootstrap.asm.o: $(SRC_DIR)/bootstrap.asm
 	@echo Creating $@
-	@$(AS) -felf64 $< -o $@
+	@$(AS) $(ASFLAGS) $< -o $@ 
 
 clean:
 	@echo Cleaning Object Files
 	@-rm $(OBJ_DIR)/*
+
+disk: $(ISO)
+	@echo I\'m going to write the ISO on /dev/sdb
+	@read -r -p "Press ENTER to continue"
+	@sudo dd if=$(ISO) of=/dev/sdb && sync
+
+$(ISO): $(SO)
+	@echo Creaning $@
+	@-rm $(BIN_DIR)/isodir/boot/*.bin $(ISO)
+	@cp $(SO) $(BIN_DIR)/isodir/boot/
+	@grub-mkrescue -o $(ISO) $(BIN_DIR)/isodir
