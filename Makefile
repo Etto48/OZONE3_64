@@ -5,7 +5,7 @@ OBJ_DIR		:=	obj
 SRC_DIR		:=	src
 ISO_DIR		:=	iso
 
-#BOOTSTRAP	:=	bootstrap.asm
+
 BOOTSTRAP_FILE:= src/bootstrap.asm
 BOOTSTRAP_OBJ:= obj/$(notdir $(BOOTSTRAP_FILE)).o
 ASFILES		:=	$(wildcard $(SRC_DIR)/*.s)

@@ -1,33 +1,31 @@
 %define FREE_SPACE 0x9000
- 
-MBALIGN  equ  1 << 0            ; align loaded modules on page boundaries
-MEMINFO  equ  1 << 1            ; provide memory map
-FLAGS    equ  MBALIGN | MEMINFO ; this is the Multiboot 'flag' field
-MAGIC    equ  0x1BADB002        ; 'magic number' lets bootloader find the header
-CHECKSUM equ -(MAGIC + FLAGS)   ; checksum of above, to prove we are multiboot
-
-section .text
-align 4
-	dd MAGIC
-	dd FLAGS
-	dd CHECKSUM
-
 
 BITS 16
-; bootstrap entry point where BIOS leaves us.
 
-global bootstrap
-bootstrap:
-    cli
+%define ALIGN    (1)           ; align loaded modules on page boundaries 
+%define MEMINFO  (2)            ; provide memory map 
+%define FLAGS    (ALIGN | MEMINFO)  ; this is the Multiboot 'flag' field 
+%define MAGIC    (0x1BADB002)       ; 'magic number' lets bootloader find the header 
+%define CHECKSUM (-(MAGIC + FLAGS)) ; checksum of above, to prove we are multiboot 
+section .text
+; Main entry point where BIOS leaves us.
+global Main
+Main:
     jmp 0x0000:.FlushCS               ; Some BIOS' may load us at 0x0000:0x7C00 while other may load us at 0x07C0:0x0000.
                                       ; Do a far jump to fix this issue, and reload CS to 0x0000.
- 
-.FlushCS:  
+align 4
+.multiboot:
+    .magic dd MAGIC
+    .flags dd FLAGS
+    .checksum dd CHECKSUM
+.FlushCS:   
     xor ax, ax
+ 
     ; Set up segment registers.
     mov ss, ax
-    ; Set up stack so that it starts below bootstrap.
-    mov sp, bootstrap 
+    ; Set up stack so that it starts below Main.
+    mov sp, Main
+ 
     mov ds, ax
     mov es, ax
     mov fs, ax
@@ -66,7 +64,7 @@ BITS 16
 %define CODE_SEG     0x0008
 %define DATA_SEG     0x0010
  
-ALIGN 4
+align 4
 IDT:
     .Length       dw 0
     .Base         dd 0
@@ -164,7 +162,7 @@ GDT:
     dq 0x00209A0000000000             ; 64-bit code descriptor (exec/read).
     dq 0x0000920000000000             ; 64-bit data descriptor (read/write).
  
-ALIGN 4
+align 4
     dw 0                              ; Padding to make the "address of the GDT" field aligned on a 4-byte boundary
  
 .Pointer:
@@ -172,7 +170,7 @@ ALIGN 4
     dd GDT                            ; 32-bit Base Address of GDT. (CPU will zero extend to 64-bit)
  
  
-[BITS 64]     
+[BITS 64]      
 LongMode:
     mov ax, DATA_SEG
     mov ds, ax
@@ -199,7 +197,7 @@ LongMode:
     mov rax, 0x1F211F641F6C1F72
     mov [edi + 16], rax
  
-    jmp bootstrap.Long                    ; You should replace this jump to wherever you want to jump to.
+    jmp Main.Long                     ; You should replace this jump to wherever you want to jump to.
 BITS 16
  
  

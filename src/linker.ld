@@ -1,8 +1,8 @@
-ENTRY(bootstrap)
+ENTRY(Main)
 SECTIONS
 {
-    KERNEL_LMA = 0x0;
-    KERNEL_VMA = 0x0;
+    KERNEL_LMA = 0x7c00;
+    KERNEL_VMA = 0;
 
     . = KERNEL_LMA;
 
@@ -10,6 +10,8 @@ SECTIONS
     {
         obj/bootstrap.asm.o (.text)
     }
+
+    . += KERNEL_VMA;
 
     .text : AT(ADDR(.text) - KERNEL_VMA)
     {
