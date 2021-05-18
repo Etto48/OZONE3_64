@@ -6,8 +6,8 @@ SRC_DIR		:=	src
 ISO_DIR		:=	iso
 
 
-BOOTSTRAP_FILE:= src/bootstrap.asm
-BOOTSTRAP_OBJ:= obj/$(notdir $(BOOTSTRAP_FILE)).o
+#BOOTSTRAP_FILE:= src/bootstrap.asm
+#BOOTSTRAP_OBJ:= obj/$(notdir $(BOOTSTRAP_FILE)).o
 ASFILES		:=	$(wildcard $(SRC_DIR)/*.s)
 CXXFILES	:=	$(wildcard $(SRC_DIR)/*.cpp)
 OBJFILES	:=	$(addprefix $(OBJ_DIR)/,$(patsubst %.s,%.s.o,$(notdir $(ASFILES))) $(patsubst %.cpp,%.cpp.o,$(notdir $(CXXFILES)))) $(BOOTSTRAP_OBJ)

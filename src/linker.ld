@@ -1,14 +1,18 @@
-ENTRY(Main)
+ENTRY(_start)
 SECTIONS
 {
-    KERNEL_LMA = 0x7c00;
-    KERNEL_VMA = 0;
+    KERNEL_LMA = 1M;
+    KERNEL_VMA = 0x0;
 
     . = KERNEL_LMA;
 
+    .multiboot_header :
+    {
+        KEEP(*(.multiboot))
+    }
     .bootstrap :
     {
-        obj/bootstrap.asm.o (.text)
+        obj/main.s.o (.text)
     }
 
     . += KERNEL_VMA;
@@ -16,7 +20,7 @@ SECTIONS
     .text : AT(ADDR(.text) - KERNEL_VMA)
     {
         _code = .;
-        *(EXCLUDE_FILE(*obj/bootstrap.asm.o) .text)
+        *(EXCLUDE_FILE(*obj/main.s.o) .text)
         *(.rodata*)
         . = ALIGN(4096);
     }
