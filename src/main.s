@@ -136,7 +136,9 @@ gdt64:
     .quad 0 #null entry
 #           executable      descriptor_type     present         64bit
 .set code_segment, . - gdt64
-    .quad   (1<<43)|        (1<<44)|            (1<<47)|        (1<<53) #code segment
+    .quad   (1<<43)|        (1<<44)|            (1<<47)|        (1<<53) #code segment system
+#                                                                           user
+    .quad   (1<<43)|        (1<<44)|            (1<<47)|        (1<<53)|    (0b11<<45)
 gdt64.pointer:
     .word . - gdt64 - 1
     .quad gdt64

@@ -15,10 +15,7 @@ linker		:=	$(SRC_DIR)/linker.ld
 
 CXX_ARGS	:=	-g -O3
 
-SHARED_FLAGS = -fno-builtin -O2 -nostdinc -nostdlib -ffreestanding -g -Wall -Wextra \
-               -Werror -I. -MMD -mno-red-zone
-
-CFLAGS = -ffreestanding -mcmodel=large -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -nostdlib -lgcc -g
+CFLAGS = -ffreestanding -mcmodel=large -mno-red-zone -nostdlib -lgcc -g
 ASFLAGS = -felf64 -F dwarf -g
 
 version		:=	3.0.0
@@ -57,7 +54,7 @@ $(OBJ_DIR)/bootstrap.asm.o: $(SRC_DIR)/bootstrap.asm
 
 clean:
 	@echo Cleaning Object Files
-	@-rm $(OBJ_DIR)/*
+	@-rm $(OBJ_DIR)/*.o
 
 disk: $(ISO)
 	@echo I\'m going to write the ISO on /dev/sdb
