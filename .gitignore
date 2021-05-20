@@ -1,1 +1,2 @@
 obj/*.o
+bin/isodir/boot/*.bin
