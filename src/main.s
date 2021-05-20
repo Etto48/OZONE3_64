@@ -54,7 +54,7 @@ check_cpuid:
         jmp error
 
 check_multiboot:
-    cmp $0x36d76289, %eax
+    cmp $0x2BADB002, %eax
     jne .no_multiboot
     ret
     .no_multiboot:

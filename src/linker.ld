@@ -6,19 +6,16 @@ SECTIONS
 
     . = KERNEL_LMA;
 
-    .multiboot_header :
-    {
-        KEEP(*(.multiboot))
-    }
     .bootstrap :
     {
         obj/main.s.o (.text)
+        *(.multiboot)
     }
 
     . += KERNEL_VMA;
 
     .text : AT(ADDR(.text) - KERNEL_VMA)
-    {
+    {   
         _code = .;
         *(EXCLUDE_FILE(*obj/main.s.o) .text)
         *(.rodata*)

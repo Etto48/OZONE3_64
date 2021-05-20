@@ -10,7 +10,7 @@ namespace memory
     {
         extern uint32_t _end;//it's address is the end of kernel program in memory
         void memcpy(const void* dst, const void* src, size_t size);
-        void memset(void* addr,size_t size,uint8_t fill=0);
+        void memset(void* addr,uint8_t fill,size_t size);
     
         void memcpyl(const void* dst, const void* src, size_t long_size);
         void memsetl(void* addr,size_t long_size,uint32_t fill=0);
@@ -23,4 +23,6 @@ namespace memory
     bool memcmp(const void* dst, const void* src, size_t size);
     
     void* align(void* address,uint64_t align);
+    void* normalize(void* address);
+    bool is_normalized(void* address);
 };

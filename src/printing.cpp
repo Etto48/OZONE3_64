@@ -1,9 +1,19 @@
 #include "include/printing.h"
 
+
+uint8_t curx=0,cury=0;
 void put_char(char c, uint8_t color, uint8_t x, uint8_t y)
 {
     ((char*)0xb8000)[(x%80+y*80)*2] = c;
     ((char*)0xb8000)[(x%80+y*80)*2+1] = color;
+}
+void clear(uint8_t color)
+{
+    for(uint16_t x=0;x<80;x++)
+        for(uint16_t y=0;y<25;y++)
+            put_char(' ',color,x,y);
+    curx=0;
+    cury=0;
 }
 void kscroll()
 {
@@ -18,7 +28,6 @@ void kscroll()
 }
 void kprint(const char* string, uint8_t color)
 {
-    static uint8_t curx=0,cury=0;
     while(*string!=0)
     {
         if(*string=='\n')
