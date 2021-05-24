@@ -51,7 +51,7 @@ namespace paging
     uint64_t secondary_frames = 0;
     volatile uint64_t free_frames = 0;
 
-    void init_frame_mapping()
+    void init_frame_mapping(multiboot_info_t* mbi)
     {
         /* _____________
         * |KERNEL FRAMES|
@@ -62,8 +62,13 @@ namespace paging
         * |             |
         * |_ _ _ _ _ _ _|
         */
+        void* first_frame_after_modules = nullptr;
+        if(mbi->flags & MULTIBOOT_INFO_MODS && mbi->mods_count>=1)
+            first_frame_after_modules = memory::align((void*)(uint64_t)(((multiboot_module_t*)(uint64_t)mbi->mods_addr)[mbi->mods_count-1].mod_end),0x1000);
+        void* first_frame_after_kernel = memory::align((void*)&memory::_end,0x1000);
+        
+        void* first_secondary_frame = (void*)(max((uint64_t)first_frame_after_kernel,(uint64_t)first_frame_after_modules));
 
-        void* first_secondary_frame = memory::align((void*)&memory::_end,0x1000);
         kernel_frames = get_frame_index(first_secondary_frame);//frames occupied by the kernel module
         secondary_frames = FRAME_COUNT-kernel_frames;//frames free at the start of the system
         free_frames = secondary_frames;

@@ -1,8 +1,10 @@
 #pragma once
 #include <stdint.h>
+#include "multiboot.h"
 #include "memory.h"
 #include "string_tools.h"
 #include "printing.h"
+#include "math.h"
 
 namespace paging
 {
@@ -40,7 +42,7 @@ namespace paging
     extern uint64_t secondary_frames;
     extern volatile uint64_t free_frames;
 
-    void init_frame_mapping();
+    void init_frame_mapping(multiboot_info_t* mbi);
 
     void* get_frame_address(uint64_t frame_descriptor_index);
     uint64_t get_frame_index(void* frame_phisical_address);

@@ -13,6 +13,5 @@ long_mode_start:
     mov %ax, %fs
     mov %ax, %gs
 
-    //PRINT OK
     call kmain
     hlt

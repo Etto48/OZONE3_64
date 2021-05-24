@@ -1,10 +1,24 @@
 .global _start
-_start:
-
 .code32
 _start:
-    lea stack_top, %esp
+    jmp multiboot_entry
 
+.align  4
+multiboot_header:
+     .long   0x1BADB002
+     .long   0x3
+     .long   -(0x1BADB002 + 0x3)
+     .long   multiboot_header
+     .long   _start
+     .long   _edata
+     .long   _end
+     .long   multiboot_entry
+
+multiboot_entry:
+
+    lea stack_top, %esp
+    
+    call save_mbi
     //CHECK LONG MODE
     call check_multiboot
     call check_cpuid
@@ -18,6 +32,12 @@ _start:
     lgdt gdt64.pointer
     ljmp $8, $long_mode_start
 
+save_mbi:
+    mov %ebx, %esi
+    lea mbi, %edi
+    mov $(120/4), %ecx
+    rep movsl
+    ret
 
 check_long_mode:
     mov $0x80000000, %eax
@@ -124,12 +144,11 @@ page_table_l3:
 page_table_l2:
     .skip 0x1000
 stack_bottom:
-    .skip 0x1000 * 4 #4kb
+    .skip 0x1000 * 4 #16kb
 stack_top:
-
-.section .data
-jump_address_offset:  .word 0
-jump_address_segment: .word 0
+.global mbi
+mbi:
+    .skip 120
 
 .section .rodata
 gdt64:

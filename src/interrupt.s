@@ -45,20 +45,17 @@
 .global load_idt
 //void load_idt(idtr_t& idtr)
 load_idt:
-    push %rbp
-    mov %rsp, %rbp
-    
 	lidt (%rdi)
-
-    pop %rbp
 	ret
 
-.global unkown_interrupt_wrapper
-unkown_interrupt_wrapper:
+.global unknown_interrupt_wrapper
+unknown_interrupt_wrapper:
+    pushq $0
+    pushq $-1
     pushaq
-    cld
     call unknown_interrupt
     popaq
+    add $16, %rsp
     iretq
 
 .global isr0
@@ -94,170 +91,269 @@ unkown_interrupt_wrapper:
 .global isr30
 .global isr31
 isr0:
-    cli
     pushq $0
     pushq $0 
     jmp isr_common_handler_wrapper
 isr1:
-    cli
     pushq $0
     pushq $1 
     jmp isr_common_handler_wrapper
 isr2:
-    cli
     pushq $0
     pushq $2 
     jmp isr_common_handler_wrapper
 isr3:
-    cli
     pushq $0
     pushq $3 
     jmp isr_common_handler_wrapper
 isr4:
-    cli
     pushq $0
     pushq $4 
     jmp isr_common_handler_wrapper
 isr5:
-    cli
     pushq $0
     pushq $5 
     jmp isr_common_handler_wrapper
 isr6:
-    cli
     pushq $0
     pushq $6 
     jmp isr_common_handler_wrapper
 isr7:
-    cli
     pushq $0
     pushq $7 
     jmp isr_common_handler_wrapper
 isr8:
-    cli
     //pushq 1
     pushq $8 
     jmp isr_common_handler_wrapper
 isr9:
-    cli
     pushq $0
     pushq $9 
     jmp isr_common_handler_wrapper
 isr10:
-    cli
     //pushq 1
     pushq $10
     jmp isr_common_handler_wrapper
 isr11:
-    cli
     //pushq 1
     pushq $11
     jmp isr_common_handler_wrapper
 isr12:
-    cli
     //pushq 1
     pushq $12
     jmp isr_common_handler_wrapper
 isr13:
-    cli
     //pushq 1
     pushq $13
     jmp isr_common_handler_wrapper
 isr14:
-    cli
     //pushq 1
     pushq $14
     jmp isr_common_handler_wrapper
 isr15:
-    cli
     pushq $0
     pushq $15
     jmp isr_common_handler_wrapper
 isr16:
-    cli
     pushq $0
     pushq $16
     jmp isr_common_handler_wrapper
 isr17:
-    cli
     pushq $0
     pushq $17
     jmp isr_common_handler_wrapper
 isr18:
-    cli
     pushq $0
     pushq $18
     jmp isr_common_handler_wrapper
 isr19:
-    cli
     pushq $0
     pushq $19
     jmp isr_common_handler_wrapper
 isr20:
-    cli
     pushq $0
     pushq $20
     jmp isr_common_handler_wrapper
 isr21:
-    cli
     pushq $0
     pushq $21
     jmp isr_common_handler_wrapper
 isr22:
-    cli
     pushq $0
     pushq $22
     jmp isr_common_handler_wrapper
 isr23:
-    cli
     pushq $0
     pushq $23
     jmp isr_common_handler_wrapper
 isr24:
-    cli
     pushq $0
     pushq $24
     jmp isr_common_handler_wrapper
 isr25:
-    cli
     pushq $0
     pushq $25
     jmp isr_common_handler_wrapper
 isr26:
-    cli
     pushq $0
     pushq $26
     jmp isr_common_handler_wrapper
 isr27:
-    cli
     pushq $0
     pushq $27
     jmp isr_common_handler_wrapper
 isr28:
-    cli
     pushq $0
     pushq $28
     jmp isr_common_handler_wrapper
 isr29:
-    cli
     pushq $0
     pushq $29
     jmp isr_common_handler_wrapper
 isr30:
-    cli
     pushq $0
     pushq $30
     jmp isr_common_handler_wrapper
 isr31:
-    cli
     pushq $0
     pushq $31
     jmp isr_common_handler_wrapper
 
 isr_common_handler_wrapper:
     pushaq
-    //wip
+    mov %rsp, %rdi
     call isr_handler
     popaq
-    add 16, %rsp
+    add $16, %rsp
+    iretq
+
+.global irq0
+.global irq1
+.global irq2
+.global irq3
+.global irq4
+.global irq5
+.global irq6
+.global irq7
+.global irq8
+.global irq9
+.global irq10
+.global irq11
+.global irq12
+.global irq13
+.global irq14
+.global irq15
+.global irq16
+.global irq17
+.global irq18
+.global irq19
+.global irq20
+.global irq21
+.global irq22
+.global irq23
+
+irq0:
+    pushq $0
+    pushq $32
+    jmp irq_common_handler_wrapper
+irq1:
+    pushq $0
+    pushq $33
+    jmp irq_common_handler_wrapper
+irq2:
+    pushq $0
+    pushq $34
+    jmp irq_common_handler_wrapper
+irq3:
+    pushq $0
+    pushq $35
+    jmp irq_common_handler_wrapper
+irq4:
+    pushq $0
+    pushq $36
+    jmp irq_common_handler_wrapper
+irq5:
+    pushq $0
+    pushq $37
+    jmp irq_common_handler_wrapper
+irq6:
+    pushq $0
+    pushq $38
+    jmp irq_common_handler_wrapper
+irq7:
+    pushq $0
+    pushq $39
+    jmp irq_common_handler_wrapper
+irq8:
+    pushq $0
+    pushq $40
+    jmp irq_common_handler_wrapper
+irq9:
+    pushq $0
+    pushq $41
+    jmp irq_common_handler_wrapper
+irq10:
+    pushq $0
+    pushq $42
+    jmp irq_common_handler_wrapper
+irq11:
+    pushq $0
+    pushq $43
+    jmp irq_common_handler_wrapper
+irq12:
+    pushq $0
+    pushq $44
+    jmp irq_common_handler_wrapper
+irq13:
+    pushq $0
+    pushq $45
+    jmp irq_common_handler_wrapper
+irq14:
+    pushq $0
+    pushq $46
+    jmp irq_common_handler_wrapper
+irq15:
+    pushq $0
+    pushq $47
+    jmp irq_common_handler_wrapper
+irq16:
+    pushq $0
+    pushq $48
+    jmp irq_common_handler_wrapper
+irq17:
+    pushq $0
+    pushq $49
+    jmp irq_common_handler_wrapper
+irq18:
+    pushq $0
+    pushq $50
+    jmp irq_common_handler_wrapper
+irq19:
+    pushq $0
+    pushq $51
+    jmp irq_common_handler_wrapper
+irq20:
+    pushq $0
+    pushq $52
+    jmp irq_common_handler_wrapper
+irq21:
+    pushq $0
+    pushq $53
+    jmp irq_common_handler_wrapper
+irq22:
+    pushq $0
+    pushq $54
+    jmp irq_common_handler_wrapper
+irq23:
+    pushq $0
+    pushq $55
+    jmp irq_common_handler_wrapper
+
+
+irq_common_handler_wrapper:
+    pushaq  
+    mov %rsp, %rdi  
+    call irq_handler
+    popaq
+    add $16, %rsp
     iretq

@@ -1,5 +1,5 @@
 CXXC		:=	g++
-AS			:=	nasm
+AS			:=	as
 BIN_DIR		:=	bin
 OBJ_DIR		:=	obj
 SRC_DIR		:=	src
@@ -32,7 +32,7 @@ test: clean $(ISO)
 	@qemu-system-x86_64 -cdrom $(ISO)
 dbg: clean $(ISO)
 	@echo Starting Debug
-	@gnome-terminal -e 'gdb $(SO) --eval-command="target remote localhost:3117"' &
+	@gnome-terminal -- gdb $(SO) --eval-command="target remote localhost:3117" &
 	@qemu-system-x86_64 -cdrom $(ISO) -gdb tcp::3117 -S
 
 
@@ -47,10 +47,6 @@ $(OBJ_DIR)/%.s.o: $(SRC_DIR)/%.s
 $(OBJ_DIR)/%.cpp.o: $(SRC_DIR)/%.cpp
 	@echo Creating $@
 	@$(CXXC) -c $(CFLAGS) $< -o $@ 
-
-$(OBJ_DIR)/bootstrap.asm.o: $(SRC_DIR)/bootstrap.asm
-	@echo Creating $@
-	@$(AS) $(ASFLAGS) $< -o $@ 
 
 clean:
 	@echo Cleaning Object Files

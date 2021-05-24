@@ -3,30 +3,31 @@
 #include "include/paging.h"
 #include "include/printing.h"
 #include "include/string_tools.h"
+#include "include/interrupt.h"
 
-extern "C" void kmain(multiboot_info_t* mbi)
+extern "C" multiboot_info_t mbi;
+
+extern "C" void kmain()
 {
     clear(0x07);
-    kprint("Welcome to OZONE3 for AMD64!\n",0x2f);
-    paging::init_frame_mapping();
-    kprint("Frame mapping initialized\n",0x07);
-    char buf[256] = {0};
-    string_tools::utoa(paging::kernel_frames,buf);
-    kprint(">kernel frames: ",0x07);
-    kprint(buf,0x07);
-    string_tools::utoa(paging::secondary_frames,buf);
-    kprint("\n>secondary frames: ",0x07);
-    kprint(buf,0x07);
-    kprint("\n>available memory: ",0x07);
-    string_tools::utoa(paging::free_frames*0x1000,buf);
-    kprint(buf,0x07);
-    kprint("B\n",0x07);
-
+    printf("\033c\x70Welcome to OZONE3 for AMD64!\n");
+    if(mbi.flags & MULTIBOOT_INFO_MODS && mbi.mods_count >= 1)
+    {
+        printf("%ud module(s) found",mbi.mods_count);
+    }
+    else
+    {
+        printf("\033c\x0cNo modules found\0330");
+    }
+    paging::init_frame_mapping(&mbi);
+    printf("\n\033c\x02""Frame mapping initialized");
+    printf("\n  kernel frames: %uld",paging::kernel_frames);
+    printf("\n  secondary frames: %uld",paging::secondary_frames);
+    printf("\n  available memory: %uld B",paging::free_frames*0x1000);
     uint64_t ret = (uint64_t)paging::extend_identity_mapping();
-    kprint("Identity mapping extended to cover entire available memory",0x07);
-    kprint("\n>available memory: ",0x07);
-    string_tools::utoa(paging::free_frames*0x1000,buf);
-    kprint(buf,0x07);
-    kprint("B\n",0x07);
-
+    printf("\n\033c\x02Identity mapping extended");
+    printf("\n  available memory: %uld B",paging::free_frames*0x1000);
+    interrupt::init_interrupts();
+    printf("\n\033c\x02Interrupts initialized");
+    
 }

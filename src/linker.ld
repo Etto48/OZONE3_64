@@ -9,7 +9,6 @@ SECTIONS
     .bootstrap :
     {
         obj/main.s.o (.text)
-        *(.multiboot)
     }
 
     . += KERNEL_VMA;
@@ -35,6 +34,8 @@ SECTIONS
        *(.eh_frame)
         . = ALIGN(4096);
    }
+
+    _edata = .;
 
    .bss : AT(ADDR(.bss) - KERNEL_VMA)
    {
