@@ -7,6 +7,9 @@ namespace interrupt
 {
     extern "C" void disable_8259();
     extern "C" void enable_8259();
+    constexpr uint16_t GDT_SYSTEM_CODE_SEGMENT = 0x08;
+    constexpr uint16_t GDT_USER_CODE_SEGMENT = 0x10;
+    constexpr uint16_t GDT_USER_DATA_SEGMENT = 0x18;
     enum class privilege_level_t
     {
         system, //0x08 GDT OFFSET
@@ -21,12 +24,12 @@ namespace interrupt
     struct context_t
     {
         uint64_t rax, rbx, rcx, rdx,
-            rsi, rdi,
-            rsp, rbp,   
+            rsi, rdi, 
+            rbp,   
             r8, r9, r10, r11, r12, r13, r14, r15,
             fs, gs,
             int_num, int_info,
-            rip, cs, rflags;
+            rip, cs, rflags, rsp, ss;
     } __attribute__((packed));
 
     struct idt_entry_t
@@ -63,9 +66,9 @@ namespace interrupt
     extern idt_entry_t IDT[IDT_SIZE];
 
     extern "C" void load_idt(idtr_t& idtr);
-    extern "C" void isr_handler(context_t* context);
-    extern "C" void irq_handler(context_t* context);
-    extern "C" void unknown_interrupt(context_t* context);
+    extern "C" void* isr_handler(context_t* context);//returns the address of the context_t of the new process
+    extern "C" void* irq_handler(context_t* context);
+    extern "C" void* unknown_interrupt(context_t* context);
     void init_interrupts();
     void panic(context_t* context);
 };

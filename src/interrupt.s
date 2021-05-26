@@ -12,7 +12,6 @@
     push %r9
     push %r8
     push %rbp
-    push %rsp
     push %rdi
     push %rsi
     push %rdx
@@ -28,7 +27,6 @@
     pop %rdx
     pop %rsi
     pop %rdi
-    pop %rsp
     pop %rbp
     pop %r8
     pop %r9
@@ -223,6 +221,7 @@ isr_common_handler_wrapper:
     pushaq
     mov %rsp, %rdi
     call isr_handler
+    mov %rax, %rsp
     popaq
     add $16, %rsp
     iretq
@@ -354,6 +353,20 @@ irq_common_handler_wrapper:
     pushaq  
     mov %rsp, %rdi  
     call irq_handler
+    mov %rax, %rsp
     popaq
     add $16, %rsp
     iretq
+
+.global sys_call_wrapper
+sys_call_wrapper:
+    pushq $0
+    pushq $0x80
+    pushaq
+    mov %rsp, %rdi #sys_call number expected in rsi
+    call sys_call
+    mov %rax, %rsp
+    popaq
+    add $16, %rsp
+    iretq
+

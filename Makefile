@@ -27,7 +27,7 @@ ISO			:=	$(BIN_DIR)/$(SO_NAME).iso
 .PHONY: clean test disk iso
 
 all: $(SO)
-test: clean $(ISO)
+test: $(ISO)
 	@echo Starting Emulation
 	@qemu-system-x86_64 -cdrom $(ISO)
 dbg: clean $(ISO)

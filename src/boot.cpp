@@ -4,6 +4,7 @@
 #include "include/printing.h"
 #include "include/string_tools.h"
 #include "include/interrupt.h"
+#include "include/multitasking.h"
 
 extern "C" multiboot_info_t mbi;
 
@@ -29,5 +30,7 @@ extern "C" void kmain()
     printf("\n  available memory: %uld B",paging::free_frames*0x1000);
     interrupt::init_interrupts();
     printf("\n\033c\x02Interrupts initialized");
+    multitasking::init_process_array();
+    printf("\n\033c\x02Process array initialized");
     
 }

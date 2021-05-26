@@ -157,7 +157,8 @@ gdt64:
 .set code_segment, . - gdt64
     .quad   (1<<43)|        (1<<44)|            (1<<47)|        (1<<53) #code segment system
 #                                                                           user
-    .quad   (1<<43)|        (1<<44)|            (1<<47)|        (1<<53)|    (0b11<<45)
+    .quad   (1<<43)|        (1<<44)|            (1<<47)|        (1<<53)|    (0b11<<45)#code segment user
+    .quad                   (1<<44)|            (1<<47)|                    (0b11<<45)
 gdt64.pointer:
     .word . - gdt64 - 1
     .quad gdt64
