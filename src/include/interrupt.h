@@ -2,11 +2,10 @@
 #include <stdint.h>
 #include "memory.h"
 #include "printing.h"
+#include "apic.h"
 
 namespace interrupt
 {
-    extern "C" void disable_8259();
-    extern "C" void enable_8259();
     constexpr uint16_t GDT_SYSTEM_CODE_SEGMENT = 0x08;
     constexpr uint16_t GDT_USER_CODE_SEGMENT = 0x10;
     constexpr uint16_t GDT_USER_DATA_SEGMENT = 0x18;
@@ -56,8 +55,6 @@ namespace interrupt
         idt_entry_t* offset;
     } __attribute__ ((packed));
 
-    
-
     constexpr uint64_t IDT_SIZE = 256;
     constexpr uint64_t ISR_SIZE = 32;
     constexpr uint64_t IRQ_SIZE = 24;
@@ -70,5 +67,9 @@ namespace interrupt
     extern "C" void* irq_handler(context_t* context);
     extern "C" void* unknown_interrupt(context_t* context);
     void init_interrupts();
-    void panic(context_t* context);
+
+    extern void (*irq_callbacks[IRQ_SIZE])(context_t* context);
+    extern const char* isr_messages[];
 };
+
+#include "multitasking.h"

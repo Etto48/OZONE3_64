@@ -8,6 +8,7 @@ ISO_DIR		:=	iso
 
 #BOOTSTRAP_FILE:= src/bootstrap.asm
 #BOOTSTRAP_OBJ:= obj/$(notdir $(BOOTSTRAP_FILE)).o
+HEADERS		:=	$(wildcard $(SRC_DIR)/include/*.h)
 ASFILES		:=	$(wildcard $(SRC_DIR)/*.s)
 CXXFILES	:=	$(wildcard $(SRC_DIR)/*.cpp)
 OBJFILES	:=	$(addprefix $(OBJ_DIR)/,$(patsubst %.s,%.s.o,$(notdir $(ASFILES))) $(patsubst %.cpp,%.cpp.o,$(notdir $(CXXFILES)))) $(BOOTSTRAP_OBJ)
@@ -26,7 +27,7 @@ ISO			:=	$(BIN_DIR)/$(SO_NAME).iso
 
 .PHONY: clean test disk iso
 
-all: $(SO)
+all: $(SO) $(HEADERS)
 test: $(ISO)
 	@echo Starting Emulation
 	@qemu-system-x86_64 -cdrom $(ISO)
@@ -36,15 +37,15 @@ dbg: clean $(ISO)
 	@qemu-system-x86_64 -cdrom $(ISO) -gdb tcp::3117 -S
 
 
-$(SO): $(linker) $(OBJFILES)
+$(SO): $(linker) $(OBJFILES) $(HEADERS)
 	@echo Creating $@
 	@$(CXXC) -T $(linker) -o $@ $(OBJFILES) -z max-page-size=0x1000 $(CFLAGS) -no-pie
 
-$(OBJ_DIR)/%.s.o: $(SRC_DIR)/%.s
+$(OBJ_DIR)/%.s.o: $(SRC_DIR)/%.s $(HEADERS)
 	@echo Creating $@
 	@$(CXXC) -c $(CFLAGS) $< -o $@ 
 
-$(OBJ_DIR)/%.cpp.o: $(SRC_DIR)/%.cpp
+$(OBJ_DIR)/%.cpp.o: $(SRC_DIR)/%.cpp $(HEADERS)
 	@echo Creating $@
 	@$(CXXC) -c $(CFLAGS) $< -o $@ 
 
@@ -57,7 +58,7 @@ disk: $(ISO)
 	@read -r -p "Press ENTER to continue"
 	@sudo dd if=$(ISO) of=/dev/sdb && sync
 
-$(ISO): $(SO)
+$(ISO): $(SO) $(HEADERS)
 	@echo Creaning $@
 	@-rm $(BIN_DIR)/isodir/boot/*.bin $(ISO)
 	@cp $(SO) $(BIN_DIR)/isodir/boot/

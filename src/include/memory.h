@@ -8,6 +8,8 @@ namespace memory
 {
     extern "C"
     {
+        extern uint32_t stack_bottom;
+        extern uint32_t stack_top;
         extern uint32_t _end;//it's address is the end of kernel program in memory
         void memcpy(const void* dst, const void* src, size_t size);
         void memset(void* addr,uint8_t fill,size_t size);

@@ -143,8 +143,10 @@ page_table_l3:
     .skip 0x1000
 page_table_l2:
     .skip 0x1000
+.global stack_bottom
 stack_bottom:
     .skip 0x1000 * 4 #16kb
+.global stack_top
 stack_top:
 .global mbi
 mbi:

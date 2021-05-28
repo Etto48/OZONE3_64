@@ -18,7 +18,8 @@ namespace interrupt
         void sys_call_wrapper();
     }
 
-    
+    void (*irq_callbacks[IRQ_SIZE])(context_t* context);
+
     constexpr uint16_t DPL_SYSTEM = 0;
     constexpr uint64_t DPL_USER = 0b01100000;
 
@@ -88,7 +89,11 @@ namespace interrupt
         };
 
         IDTR = {IDT_SIZE*sizeof(idt_entry_t)-1,IDT};
-        disable_8259();
+        apic::disable_8259();
+        for(auto& c:irq_callbacks)
+        {
+            c=nullptr;
+        }
         memory::memset(IDT,0,IDTR.limit+1);
         for(uint64_t i = 0;i<IDT_SIZE;i++)
         {
@@ -106,6 +111,28 @@ namespace interrupt
         load_idt(IDTR);
         asm volatile("sti");
     }
+    extern "C" void* isr_handler(context_t* context)
+    {
+        multitasking::save_state(context);
+        multitasking::abort();
+        return multitasking::load_state();
+    }
+    extern "C" void* irq_handler(context_t* context)
+    {
+        multitasking::save_state(context);
+        if(irq_callbacks[context->int_num-ISR_SIZE])
+        {
+            irq_callbacks[context->int_num-ISR_SIZE](context);
+        }
+        apic::send_EOI(context->int_num);
+        return multitasking::load_state();
+    }
+    extern "C" void* unknown_interrupt(context_t* context)
+    {
+        multitasking::save_state(context);
+        return multitasking::load_state();
+    }
+
     const char* isr_messages[] =
     {
         "Division By Zero",
@@ -141,31 +168,4 @@ namespace interrupt
         "Reserved",
     	"Reserved"
     };
-    extern "C" void* isr_handler(context_t* context)
-    {
-        panic(context);
-        //abort();
-        //return next_proc();
-        return context;
-    }
-    extern "C" void* irq_handler(context_t* context)
-    {
-        asm volatile ("hlt");
-        return context;
-    }
-    extern "C" void* unknown_interrupt(context_t* context)
-    {
-        return context;
-    }
-    void panic(context_t* context)
-    {
-        clear(0x4f);
-        printf("\033c\xf4KERNEL PANIC\n");
-        printf("Cause: %s (0x%x)\nError found at: 0x%p\n\n",isr_messages[context->int_num],context->int_info,context->rip);
-        printf("Flags: 0b%b\nCS: 0x%p\n",context->rflags,context->cs);
-        printf("RAX:0x%p RBX:0x%p\nRCX:0x%p RDX:0x%p\nRSI:0x%p RDI:0x%p\n",context->rax,context->rbx,context->rcx,context->rdx,context->rsi,context->rdi);
-        printf("Stack segment: 0x%p\nStack Pointer: 0x%p\nBase pointer: 0x%p\n",context->ss,context->rsp,context->rbp);
-
-        asm volatile("hlt");
-    }
 };

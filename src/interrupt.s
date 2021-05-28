@@ -40,6 +40,21 @@
     pop %gs
 .endm
 
+.macro proc_to_sys
+    pushaq
+    mov %rsp, %rdi 
+    mov system_stack, %rsp
+    mov system_base, %rbp
+.endm
+
+.macro sys_to_proc
+    mov %rsp, system_stack
+    mov %rbp, system_base
+    mov %rax, %rsp
+    popaq
+    add $16, %rsp
+.endm
+
 .global load_idt
 //void load_idt(idtr_t& idtr)
 load_idt:
@@ -50,10 +65,9 @@ load_idt:
 unknown_interrupt_wrapper:
     pushq $0
     pushq $-1
-    pushaq
+    proc_to_sys
     call unknown_interrupt
-    popaq
-    add $16, %rsp
+    sys_to_proc
     iretq
 
 .global isr0
@@ -218,12 +232,9 @@ isr31:
     jmp isr_common_handler_wrapper
 
 isr_common_handler_wrapper:
-    pushaq
-    mov %rsp, %rdi
+    proc_to_sys
     call isr_handler
-    mov %rax, %rsp
-    popaq
-    add $16, %rsp
+    sys_to_proc
     iretq
 
 .global irq0
@@ -350,23 +361,24 @@ irq23:
 
 
 irq_common_handler_wrapper:
-    pushaq  
-    mov %rsp, %rdi  
+    proc_to_sys
     call irq_handler
-    mov %rax, %rsp
-    popaq
-    add $16, %rsp
+    sys_to_proc
     iretq
 
 .global sys_call_wrapper
 sys_call_wrapper:
     pushq $0
     pushq $0x80
-    pushaq
-    mov %rsp, %rdi #sys_call number expected in rsi
-    call sys_call
-    mov %rax, %rsp
-    popaq
-    add $16, %rsp
+    proc_to_sys
+    call sys_call #sys_call number expected in rsi
+    sys_to_proc
     iretq
+
+.section .data
+system_stack:
+    .quad stack_top
+system_base:
+    .quad stack_top
+
 

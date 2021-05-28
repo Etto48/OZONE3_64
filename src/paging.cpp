@@ -159,7 +159,7 @@ namespace paging
     }
     void destroy_paging_trie(page_table_t* trie_root)
     {
-        for(uint64_t i4 =0;i4<512;i4++)
+        for(uint64_t i4 =1;i4<512;i4++)//skip the shared part;
         {
             if(trie_root->is_present(i4))
             {
@@ -186,6 +186,7 @@ namespace paging
                 free_table(l3);
             }
         }
+        trie_root->set_entry(0,nullptr,0);
         free_table(trie_root);
     }
 

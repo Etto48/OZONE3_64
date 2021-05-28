@@ -13,6 +13,14 @@ SECTIONS
 
     . += KERNEL_VMA;
 
+    .init_array : AT(ADDR(.init_array) - KERNEL_VMA)
+	{
+		PROVIDE_HIDDEN (__init_array_start = .);
+		KEEP (*(SORT(.init_array.*)))
+		KEEP (*(.init_array*))
+		PROVIDE_HIDDEN (__init_array_end = .);
+	}
+
     .text : AT(ADDR(.text) - KERNEL_VMA)
     {   
         _code = .;
