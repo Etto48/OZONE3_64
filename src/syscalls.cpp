@@ -11,17 +11,19 @@ namespace syscalls
             context->rax=multitasking::execution_index;
             break;
         case 1://sleep
-            multitasking::process_array[multitasking::execution_index].is_ready = false;
-            clock::add_timer(multitasking::execution_index,context->rdx);
+            clock::add_timer(context->rdx);
             break;
         case 2://die
             multitasking::destroy_process(multitasking::execution_index);
             break;
-        case 3:
+        case 3://create_semaphore
+            context->rax = multitasking::create_semaphore(context->rdx);
             break;
-        case 4:
+        case 4://acquire_semaphore
+            multitasking::acquire_semaphore(context->rdx);
             break;
-        case 5:
+        case 5://release_semaphore
+            multitasking::release_semaphore(context->rdx);
             break;
         default:
             break;

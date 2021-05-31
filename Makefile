@@ -14,8 +14,6 @@ CXXFILES	:=	$(wildcard $(SRC_DIR)/*.cpp)
 OBJFILES	:=	$(addprefix $(OBJ_DIR)/,$(patsubst %.s,%.s.o,$(notdir $(ASFILES))) $(patsubst %.cpp,%.cpp.o,$(notdir $(CXXFILES)))) $(BOOTSTRAP_OBJ)
 linker		:=	$(SRC_DIR)/linker.ld
 
-CXX_ARGS	:=	-g -O3
-
 CFLAGS = -ffreestanding -mcmodel=large -mno-red-zone -nostdlib -lgcc -g
 ASFLAGS = -felf64 -F dwarf -g
 

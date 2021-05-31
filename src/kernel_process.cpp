@@ -11,8 +11,21 @@ namespace kernel
             put_char(anim[i],color,x,y);
             i++;
             i%=4;
-            sys::sleep(100);
+            sys::sleep(50);
         }
+    }
+
+    constexpr uint64_t semaphore_init = 0xFFFFFFFF;
+    uint64_t semaphore_id = semaphore_init;
+    void test_process5()
+    {
+        sys::sleep(4000);
+        test_anim(0x70,75,0);
+    }
+    void test_process4()
+    {
+        sys::sleep(3000);
+        test_anim(0x70,76,0);
     }
     void test_process3()
     {
@@ -26,7 +39,6 @@ namespace kernel
     }
     void test_process()
     {
-        //sys::sleep(1000);
         test_anim(0x70,79,0);
     }
     void init()
@@ -37,9 +49,8 @@ namespace kernel
         clock::init();
         printf("\n\033c\x02""Clock initialized");
         
-
-        
-        while(true);
+        while(true);//idle in case of need;
     }
+
 
 };

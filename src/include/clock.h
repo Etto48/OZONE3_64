@@ -11,5 +11,5 @@ namespace clock
     void init();
     void callback(interrupt::context_t* context);
 
-    void add_timer(uint64_t id, uint64_t ticks);
+    void add_timer(uint64_t ticks);
 };

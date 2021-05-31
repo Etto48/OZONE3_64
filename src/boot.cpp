@@ -7,7 +7,7 @@
 #include "include/multitasking.h"
 #include "include/kernel_process.h"
 #include "include/heap.h"
-#include "include/sys.h"
+#include "include/ozone/sys.h"
 
 extern "C" multiboot_info_t mbi;
 
@@ -35,7 +35,7 @@ extern "C" void kmain()
     printf("\n\033c\x02Interrupts initialized");
     multitasking::init_process_array();
     printf("\n\033c\x02Process array initialized");
-    
+
     multitasking::create_process((void*)kernel::init,&paging::identity_l4_table,interrupt::privilege_level_t::system);
 
     auto new_trie = paging::create_paging_trie();
@@ -44,6 +44,10 @@ extern "C" void kmain()
     multitasking::create_process((void*)kernel::test_process2,new_trie2,interrupt::privilege_level_t::system);
     auto new_trie3 = paging::create_paging_trie();
     multitasking::create_process((void*)kernel::test_process3,new_trie3,interrupt::privilege_level_t::system);
+    auto new_trie4 = paging::create_paging_trie();
+    multitasking::create_process((void*)kernel::test_process4,new_trie4,interrupt::privilege_level_t::system);
+    auto new_trie5 = paging::create_paging_trie();
+    multitasking::create_process((void*)kernel::test_process5,new_trie5,interrupt::privilege_level_t::system);
     sys::sys_call_n(0);//create an interrupt to switch to multitasking mode
     
 }

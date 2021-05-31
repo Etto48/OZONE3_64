@@ -1,4 +1,5 @@
 #include "elf.h"
+#include <stdint.h>
 
 typedef uint16_t   Elf64_Half;
 typedef uint32_t   Elf64_Word;

@@ -26,43 +26,87 @@ namespace clock
     }
     void init()
     {
-        set_freq(500);
+        set_freq(1000);
         interrupt::irq_callbacks[0]=callback;
+    }
+
+    void print_list()
+    {
+        for(auto p = timer_list;p;p=p->next)
+        {
+            printf("%uld(%uld) ",p->id,p->ticks);
+        }
+        printf("\n");
+    }
+
+    void execute_timer_recursive(process_timer_t*& list)
+    {
+        if(list && list->ticks==0)
+        {
+            //multitasking::scheduler_timer_ticks = 0;
+            auto to_free = list;
+            multitasking::add_ready(list->id);
+            list = list->next;
+            execute_timer_recursive(list);
+            system_heap.free(to_free);
+        }
     }
 
     void callback(interrupt::context_t* context)
     {
+        //print_list();
         multitasking::scheduler_timer_ticks++;
         if(timer_list)
-        {
+        {   
             timer_list->ticks--;
-            while(timer_list&&timer_list->ticks==0)
+            /*while(timer_list && timer_list->ticks==0)
             {//run and extract
-                multitasking::process_array[timer_list->id].is_ready = true;
+                multitasking::add_ready(timer_list->id);
                 auto to_remove = timer_list;
                 timer_list = timer_list->next;
                 system_heap.free(to_remove);
-            }
+            }*/
+            execute_timer_recursive(timer_list);
         }
     }
 
-    void add_timer(uint64_t id, uint64_t ticks)
+    void add_timer_recursive(uint64_t id, uint64_t ticks, process_timer_t*& list)
+    {
+        if((!list) || (ticks < list->ticks))
+        {
+            auto old = list;
+            auto new_timer = (process_timer_t*)system_heap.malloc(sizeof(process_timer_t));
+            list = new_timer;
+            new_timer->id = id;
+            new_timer->ticks = ticks;
+            new_timer->next = old;
+            if(old)
+            {
+                old->ticks-=ticks;
+            }
+        }
+        else
+        {
+            add_timer_recursive(id,ticks-list->ticks,list->next);
+        }
+    }
+
+    void add_timer(uint64_t ticks)
     {
         process_timer_t* last = nullptr;
         process_timer_t* p;
-        uint64_t time_sum = 0;
         for(
             p = timer_list;
-            p && time_sum + p->ticks < ticks;
-            time_sum += p->ticks,
+            p && p->ticks < ticks;
+            ticks -= p->ticks,
             p=p->next)
         {
             last = p;
         }
         process_timer_t* new_process_timer = (process_timer_t*)system_heap.malloc(sizeof(process_timer_t));
-        new_process_timer->id = id;
+        new_process_timer->id = multitasking::execution_index;
         new_process_timer->next = p;
-        new_process_timer->ticks = ticks - time_sum;
+        new_process_timer->ticks = ticks;
         if(p)
         {
             p->ticks-=new_process_timer->ticks;
@@ -75,5 +119,9 @@ namespace clock
         {
             last->next = new_process_timer;
         }
+        //printf("ADDED %uld(%uld)\n",multitasking::execution_index,ticks);
+        //add_timer_recursive(multitasking::execution_index,ticks,timer_list);
+        //print_list();
+        multitasking::drop();
     }
 };
