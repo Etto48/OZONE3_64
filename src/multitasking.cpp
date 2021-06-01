@@ -127,6 +127,15 @@ namespace multitasking
         }
     }
 
+    uint64_t fork(void(*main)())
+    {
+        auto l4 = paging::table_alloc();
+        auto& ol4 = process_array[execution_index].paging_root;
+        l4->copy_from(*ol4,0,512);
+        uint16_t stack_index = ((uint64_t)stack_top_address & (0x00000000001ff000UL<<27))>>(12+27);
+        l4->set_entry(stack_index,nullptr,0);
+        return create_process((void*)main,l4,process_array[execution_index].level,execution_index);
+    }
 
     void init_process_array()
     {
@@ -151,7 +160,7 @@ namespace multitasking
         paging::unmap((void*)stack_top_address,page_count,paging_root,[](void* phisical_address,bool big_pages){return paging::free_frame(phisical_address);},false);
     }
 
-    uint64_t create_process(void* entrypoint,paging::page_table_t* paging_root,interrupt::privilege_level_t level)
+    uint64_t create_process(void* entrypoint,paging::page_table_t* paging_root,interrupt::privilege_level_t level,uint64_t father_id)
     {
         if(process_count<MAX_PROCESS_NUMBER)
         {
@@ -172,11 +181,16 @@ namespace multitasking
             uint64_t process_id = get_available_index();
 
             process_array[process_id].id = process_id;
+            process_array[process_id].father_id = father_id;
             process_array[process_id].is_present = true;
             process_array[process_id].level = level;
             process_array[process_id].paging_root = paging_root;
             process_array[process_id].context = context;
             process_array[process_id].data_pointer = stack_base;
+            auto last_trie = paging::get_current_trie();
+            paging::set_current_trie(paging_root);
+            process_array[process_id].process_heap = heap{(void*)stack_top_address,1024*1024};
+            paging::set_current_trie(last_trie);
             process_array[process_id].next = nullptr;
 
             process_count++;
@@ -202,7 +216,18 @@ namespace multitasking
             paging::set_current_trie(&paging::identity_l4_table);
             process_array[id].is_present = false;
             destroy_stack(process_array[id].paging_root);
-            paging::destroy_paging_trie(process_array[id].paging_root);
+            if(process_array[id].father_id==MAX_PROCESS_NUMBER)
+            {
+                paging::destroy_paging_trie(process_array[id].paging_root);
+            }
+            else
+            {
+                for(uint64_t i = 0;i<512;i++)
+                {
+                    process_array[id].paging_root->set_entry(i,nullptr,0);
+                }
+                paging::free_table(process_array[id].paging_root);
+            }
             process_count--;
             for(uint64_t i=0;i<MAX_SEMAPHORE_NUMBER;i++)
             {
@@ -232,15 +257,13 @@ namespace multitasking
         {
             if(scheduler_timer_ticks>=timesharing_interval||(!process_array[execution_index].is_present))
             {
-                scheduler_timer_ticks = 0;
                 next();
             }
         }
         else
         {
             execution_index = 0;//initialization
-            scheduler_timer_ticks = 0;
-            execution_index = next_present_process();
+            drop();
         }
     }
     void drop()
@@ -250,11 +273,15 @@ namespace multitasking
     }
     void next()
     {
+        scheduler_timer_ticks = 0;
         auto last_exec = execution_index;
         if(ready_queue)
         {
-            execution_index = next_present_process();
-            add_ready(last_exec);
+            do
+            {
+                execution_index = next_present_process();
+                add_ready(last_exec);
+            } while (ready_queue && execution_index == 0);
         }
     }
 

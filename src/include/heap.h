@@ -18,6 +18,7 @@ private:
     void internal_free(void* address, size_t n);
 public:
     heap(void* address, size_t size);
+    heap() = default;
     void* malloc(size_t size);
     void* malloc(size_t size, size_t align);
     void free(void* address);
@@ -25,4 +26,3 @@ public:
 };
 
 extern heap system_heap;
-

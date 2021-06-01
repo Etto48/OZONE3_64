@@ -375,6 +375,15 @@ sys_call_wrapper:
     sys_to_proc
     iretq
 
+.global sys_call_wrapper_system
+sys_call_wrapper_system:
+    pushq $0
+    pushq $0x81
+    proc_to_sys
+    call sys_call_system #sys_call_system number expected in rsi
+    sys_to_proc
+    iretq
+
 .section .data
 system_stack:
     .quad stack_top

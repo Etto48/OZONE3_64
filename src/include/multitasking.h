@@ -13,11 +13,13 @@ namespace multitasking
     {
         bool is_present = false;
         uint64_t id;
+        uint64_t father_id;
         interrupt::privilege_level_t level;
         //uint64_t priority;
         void* data_pointer;
         interrupt::context_t* context;
         paging::page_table_t* paging_root;//cr3 register
+        heap process_heap;
 
         process_descriptor_t* next = nullptr;
     };
@@ -56,6 +58,8 @@ namespace multitasking
     void acquire_semaphore(uint64_t semaphore_id);
     void release_semaphore(uint64_t semaphore_id);
 
+    uint64_t fork(void(*main)());
+
     void init_process_array();
 
     uint64_t pop_ready();
@@ -64,7 +68,7 @@ namespace multitasking
     void* create_stack(paging::page_table_t* paging_root);
     void destroy_stack(paging::page_table_t* paging_root);
 
-    uint64_t create_process(void* entrypoint,paging::page_table_t* paging_root,interrupt::privilege_level_t level);
+    uint64_t create_process(void* entrypoint,paging::page_table_t* paging_root,interrupt::privilege_level_t level,uint64_t father_id);
     void destroy_process(uint64_t id);
 
     //updates execution_index with the index of the next process to run

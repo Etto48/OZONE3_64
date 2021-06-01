@@ -16,6 +16,7 @@ namespace interrupt
 
         void unknown_interrupt_wrapper();
         void sys_call_wrapper();
+        void sys_call_wrapper_system();
     }
 
     void (*irq_callbacks[IRQ_SIZE])(context_t* context);
@@ -108,6 +109,7 @@ namespace interrupt
             IDT[i+ISR_SIZE]={irqs[i],privilege_level_t::system,privilege_level_t::system,idt_gate_type_t::interrupt_gate,true};
         }
         IDT[0x80]={sys_call_wrapper,privilege_level_t::system,privilege_level_t::user,idt_gate_type_t::interrupt_gate,true};
+        IDT[0x81]={sys_call_wrapper_system,privilege_level_t::system,privilege_level_t::system,idt_gate_type_t::interrupt_gate,true};
         load_idt(IDTR);
         asm volatile("sti");
     }

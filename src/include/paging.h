@@ -62,6 +62,7 @@ namespace paging
     void* virtual_to_phisical(void* virtual_address,page_table_t* trie_root);
     
     extern "C" void set_current_trie(page_table_t* trie_root);
+    extern "C" page_table_t* get_current_trie();
     extern "C" void* get_cr2();
 
     //should be 0xffffffffffffffff if it's all ok, if you're trying to map a region that's already mapped

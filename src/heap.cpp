@@ -1,4 +1,8 @@
 #include "include/heap.h"
+namespace multitasking
+{
+	extern void abort(const char* msg);
+};
 
 // Lo heap è composto da zone di memoria libere e occupate. Ogni zona di memoria
 // è identificata dal suo indirizzo di partenza e dalla sua size.
@@ -29,7 +33,7 @@ void heap::internal_free(void* indirizzo, size_t quanti)
 
 	// il caso "indirizzo == 0", invece, va escluso, in quanto l'indirizzo
 	// 0 viene usato per codificare il puntatore nullo
-	if (indirizzo == nullptr) asm volatile("hlt");//panic("internal_free(0)");
+	if (indirizzo == nullptr) multitasking::abort("wrong heap initialization");//panic("internal_free(0)");
 
 	// la zona va inserita nella lista delle zone libere, ordinata per
 	// indirizzo di partenza (tale ordinamento serve a semplificare la
@@ -47,7 +51,7 @@ void heap::internal_free(void* indirizzo, size_t quanti)
 	if (scorri == indirizzo) {
 		//flog(LOG_ERR, "indirizzo = 0x%x", indirizzo);
 		//panic("double free");
-		asm volatile("hlt");
+		multitasking::abort("double free");
 	}
 	// assert(scorri == 0 || scorri > indirizzo)
 
@@ -281,7 +285,7 @@ void heap::free(void* address)
 	// al di fuori di un array, ...)
 	if (des->next != reinterpret_cast<memory_descriptor_t*>(0xdeadbeef))
 		//panic("free() errata");
-		asm volatile("hlt");
+		multitasking::abort("wrong delete");
 	
 	// la zona viene liberata tramite la funzione "internal_free", che ha
 	// bisogno dell'indirizzo di partenza e della size della zona

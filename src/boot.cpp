@@ -36,18 +36,7 @@ extern "C" void kmain()
     multitasking::init_process_array();
     printf("\n\033c\x02Process array initialized");
 
-    multitasking::create_process((void*)kernel::init,&paging::identity_l4_table,interrupt::privilege_level_t::system);
-
-    auto new_trie = paging::create_paging_trie();
-    multitasking::create_process((void*)kernel::test_process,new_trie,interrupt::privilege_level_t::system);
-    auto new_trie2 = paging::create_paging_trie();
-    multitasking::create_process((void*)kernel::test_process2,new_trie2,interrupt::privilege_level_t::system);
-    auto new_trie3 = paging::create_paging_trie();
-    multitasking::create_process((void*)kernel::test_process3,new_trie3,interrupt::privilege_level_t::system);
-    auto new_trie4 = paging::create_paging_trie();
-    multitasking::create_process((void*)kernel::test_process4,new_trie4,interrupt::privilege_level_t::system);
-    auto new_trie5 = paging::create_paging_trie();
-    multitasking::create_process((void*)kernel::test_process5,new_trie5,interrupt::privilege_level_t::system);
-    sys::sys_call_n(0);//create an interrupt to switch to multitasking mode
+    multitasking::create_process((void*)kernel::init,&paging::identity_l4_table,interrupt::privilege_level_t::system,multitasking::MAX_PROCESS_NUMBER);
+    user::sys_call_n(0);//create an interrupt to switch to multitasking mode
     
 }

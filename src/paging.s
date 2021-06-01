@@ -8,6 +8,11 @@ set_current_trie:
 .end: 
     ret
 
+.global get_current_trie
+get_current_trie:
+    mov %cr3, %rax
+    ret
+
 .global get_cr2
 get_cr2:
     mov %cr2, %rax
