@@ -7,7 +7,7 @@
 #include "include/multitasking.h"
 #include "include/kernel_process.h"
 #include "include/heap.h"
-#include "include/ozone/sys.h"
+#include <ozone.h>
 
 extern "C" multiboot_info_t mbi;
 
