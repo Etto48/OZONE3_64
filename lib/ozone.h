@@ -22,7 +22,7 @@ namespace user
     //returns the process_id of the new process, user::exit() will be automatically called if the functions returns
     uint64_t fork(void (*main)());
     //prints a line
-    void println(const char* str);
+    //void println(const char* str);
 };
 void* operator new(size_t size);
 //void* operator new(size_t size, size_t align);

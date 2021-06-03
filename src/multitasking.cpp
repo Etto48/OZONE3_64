@@ -164,7 +164,7 @@ namespace multitasking
     {
         if(process_count<MAX_PROCESS_NUMBER)
         {
-            auto translated_entry = paging::virtual_to_phisical(entrypoint,paging_root);
+            //auto translated_entry = paging::virtual_to_phisical(entrypoint,paging_root);//for debug
             auto last_trie = paging::get_current_trie();
             paging::set_current_trie(paging_root);
 

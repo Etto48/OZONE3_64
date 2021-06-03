@@ -37,8 +37,8 @@ namespace syscalls
         case 8://delete
             multitasking::process_array[multitasking::execution_index].process_heap.free((void*)context->rdx);
             break;
-        case 9://println
-            println((char*)context->rdx);
+        case 9://println WIP
+            //println((char*)context->rdx);
             break;
         default:
             break;

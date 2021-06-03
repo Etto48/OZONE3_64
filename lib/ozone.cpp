@@ -39,10 +39,10 @@ namespace user
     {
         return sys_call_n(6,(uint64_t)main);
     }
-    void println(const char* str)
+    /*void println(const char* str)
     {
         sys_call_n(9,(uint64_t)str);
-    }
+    }*/
 };
 
 void* operator new(size_t size)

@@ -80,9 +80,9 @@ $(OBJ_DIR)/%.cpp.o: $(LIB_DIR)/%.cpp lib/ozone.h
 
 clean:
 	@echo Cleaning Object Files
-	@-rm $(OBJ_DIR)/*.o
-	@-rm $(LIB)
-	@-rm $(MOD_OBJ)/*.o
+	@-rm $(OBJ_DIR)/*.o ||:
+	@-rm $(LIB) ||:
+	@-rm $(MOD_OBJ)/*.o ||:
 
 disk: $(ISO)
 	@echo I\'m going to write the ISO on /dev/sdb
@@ -91,10 +91,10 @@ disk: $(ISO)
 
 $(ISO): $(SO) $(MODULES) $(HEADERS) $(GRUB_CFG)
 	@echo Creaning $@
-	@-rm $(BIN_DIR)/isodir/boot/*.bin $(ISO)
+	@-rm $(BIN_DIR)/isodir/boot/*.bin $(ISO) ||:
 	@cp $(SO) $(BIN_DIR)/isodir/boot/
 	@cp $(MOD_BIN)/* $(BIN_DIR)/isodir/boot/
-	@grub-mkrescue -o $(ISO) $(BIN_DIR)/isodir
+	@grub-mkrescue -o $(ISO) $(BIN_DIR)/isodir 2>&-
 
 $(GRUB_CFG):
 	@echo Creating $@
@@ -115,7 +115,7 @@ lib: $(LIB_DIR)/ozone.a
 
 $(LIB) : $(LIBOBJFILES)
 	@echo Creating $@
-	@ar r $@ $?
+	@ar r $@ $? 2>&-
 
 
 
