@@ -15,7 +15,7 @@ namespace kernel
         }
     }
 
-    constexpr uint64_t semaphore_init = 0xFFFFFFFF;
+    /*constexpr uint64_t semaphore_init = 0xFFFFFFFF;
     uint64_t semaphore_id = semaphore_init;
     void test_process5()
     {
@@ -36,24 +36,36 @@ namespace kernel
     {
         user::sleep(1000);
         test_anim(0x70,78,0);
-    }
+    }*/
     void test_process()
     {
+        //user::sleep(1000);
+        //user::fork(test_process2);
+        //user::fork(test_process3);
+        //user::fork(test_process4);
+        //user::fork(test_process5);
+        //user::sleep(6000);
         test_anim(0x70,79,0);
+    }
+    void nproc()
+    {
+        while(true)
+        {
+            printf("Number of processes: %uld    \r",multitasking::process_count);
+        }
+        printf("\n");
     }
     void init()
     {
-        printf("\n\033c\x0b""Entered multitasking mode");
+        printf("\033c\x0b""Entered multitasking mode\n");
         apic::init();
-        printf("\n\033c\x02""Apic initialized");
+        printf("\033c\x02""Apic initialized\n");
         clock::init();
-        printf("\n\033c\x02""Clock initialized");
+        printf("\033c\x02""Clock initialized\n");
         
+        user::fork(nproc);
         user::fork(test_process);
-        user::fork(test_process2);
-        user::fork(test_process3);
-        user::fork(test_process4);
-        user::fork(test_process5);
+        
 
         while(true);//idle in case of need;
     }

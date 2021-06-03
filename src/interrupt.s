@@ -51,6 +51,8 @@
     mov %rsp, system_stack
     mov %rbp, system_base
     mov %rax, %rsp
+    add  $192, %rax
+    movq %rax, tss_stack_pointer0
     popaq
     add $16, %rsp
 .endm

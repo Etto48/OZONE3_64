@@ -7,8 +7,8 @@
 namespace interrupt
 {
     constexpr uint16_t GDT_SYSTEM_CODE_SEGMENT = 0x08;
-    constexpr uint16_t GDT_USER_CODE_SEGMENT = 0x10;
-    constexpr uint16_t GDT_USER_DATA_SEGMENT = 0x18;
+    constexpr uint16_t GDT_USER_CODE_SEGMENT = 0x10|3;
+    constexpr uint16_t GDT_USER_DATA_SEGMENT = 0x18|3;
     enum class privilege_level_t
     {
         system, //0x08 GDT OFFSET

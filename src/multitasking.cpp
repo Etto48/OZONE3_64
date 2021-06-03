@@ -2,12 +2,14 @@
 
 namespace multitasking
 {
-    constexpr uint64_t stack_top_address = 0xffffffff00000000;
+    constexpr uint64_t stack_pages = 256;
+    constexpr uint64_t stack_bottom_address = 0xffffffffffffffff;
+    constexpr uint64_t stack_top_address = stack_bottom_address - (256*0x1000-1);
 
     process_descriptor_t process_array[MAX_PROCESS_NUMBER];
     semaphore_descriptor_t semaphore_array[MAX_SEMAPHORE_NUMBER];
     volatile uint64_t execution_index = MAX_PROCESS_NUMBER;//for forcing the scheduler to initialize
-    uint64_t process_count = 0;
+    volatile uint64_t process_count = 0;
 
     process_descriptor_t* ready_queue = nullptr;
     process_descriptor_t* last_ready = nullptr;
@@ -147,25 +149,27 @@ namespace multitasking
 
     void* create_stack(paging::page_table_t* paging_root,interrupt::privilege_level_t privilege_level)
     {
-        uint64_t page_count = 256;
         uint16_t flags = paging::flags::RW;
         if(privilege_level==interrupt::privilege_level_t::user)
             flags|=paging::flags::USER;
-        paging::map((void*)stack_top_address,page_count,flags,paging_root,[](void* virtual_address,bool big_pages){return paging::frame_alloc();},false);
-        return (void*)((uint64_t)stack_top_address+0x1000*page_count-1);
+        paging::map((void*)stack_top_address,stack_pages,flags,paging_root,[](void* virtual_address,bool big_pages){return paging::frame_alloc();},false);
+        return (void*)stack_bottom_address;
     }
     void destroy_stack(paging::page_table_t* paging_root)
     {
-        uint64_t page_count = 256;
-        paging::unmap((void*)stack_top_address,page_count,paging_root,[](void* phisical_address,bool big_pages){return paging::free_frame(phisical_address);},false);
+        paging::unmap((void*)stack_top_address,stack_pages,paging_root,[](void* phisical_address,bool big_pages){return paging::free_frame(phisical_address);},false);
     }
 
     uint64_t create_process(void* entrypoint,paging::page_table_t* paging_root,interrupt::privilege_level_t level,uint64_t father_id)
     {
         if(process_count<MAX_PROCESS_NUMBER)
         {
-            auto stack_base = create_stack(paging_root,level);
-            interrupt::context_t* context = (interrupt::context_t*)paging::virtual_to_phisical((void*)((uint64_t)stack_base-sizeof(interrupt::context_t)),paging_root);
+            auto translated_entry = paging::virtual_to_phisical(entrypoint,paging_root);
+            auto last_trie = paging::get_current_trie();
+            paging::set_current_trie(paging_root);
+
+            auto stack_base = (void*)((uint64_t)create_stack(paging_root,level) - 8);
+            interrupt::context_t* context = (interrupt::context_t*)((uint64_t)stack_base-sizeof(interrupt::context_t));
             context->ss = level==interrupt::privilege_level_t::user?interrupt::GDT_USER_DATA_SEGMENT:0;
             context->cs = level==interrupt::privilege_level_t::user?interrupt::GDT_USER_CODE_SEGMENT:interrupt::GDT_SYSTEM_CODE_SEGMENT;
             constexpr uint64_t IF = 0x0200;
@@ -178,6 +182,9 @@ namespace multitasking
                 context->rsi = context->rdi =
                 context->r8 = context->r9 = context->r10 = context->r11 = context->r12 = context->r13 = context->r14 = context->r15 = context->fs = context->gs = context->int_num = context->int_info = 0;
 
+            //tricks the function to call automatically user::exit() it reaches the end (it can cause a crash in user code we need to fix this later)
+            *(void**)((uint64_t)context+sizeof(interrupt::context_t)) = (void*)user::exit;
+
             uint64_t process_id = get_available_index();
 
             process_array[process_id].id = process_id;
@@ -187,11 +194,11 @@ namespace multitasking
             process_array[process_id].paging_root = paging_root;
             process_array[process_id].context = context;
             process_array[process_id].data_pointer = stack_base;
-            auto last_trie = paging::get_current_trie();
-            paging::set_current_trie(paging_root);
+            
             process_array[process_id].process_heap = heap{(void*)stack_top_address,1024*1024};
-            paging::set_current_trie(last_trie);
             process_array[process_id].next = nullptr;
+
+            paging::set_current_trie(last_trie);
 
             process_count++;
             add_ready(process_id);
@@ -236,8 +243,14 @@ namespace multitasking
                     destroy_semaphore(i);
                 }
             }
+            for(uint64_t i=0;i<MAX_PROCESS_NUMBER;i++)//kill the younglings (child processes)
+            {
+                if(process_array[i].is_present && process_array[i].father_id==id)
+                {
+                    destroy_process(i);
+                }
+            }
             //we should remove it from the lists but we don't care, just check if is present before executing
-            drop();//just to be sure
         }
     }
 
@@ -307,12 +320,12 @@ namespace multitasking
         printf("Process id: %uld\n",execution_index);
         printf("Cause: ");
         if(context->int_num<32)
-            printf("%s (0x%x)",interrupt::isr_messages[context->int_num]);
+            printf("%s (0x%x)",interrupt::isr_messages[context->int_num],context->int_info);
         else if(context->int_num>=32&&context->int_num<32+24)
             printf("Error during IRQ number %uld",context->int_num-32);
         else if(context->int_num==0x80)
             printf("Error during syscall %s",syscalls_names[context->rdi]);
-        printf("\nError found at: 0x%p\n",context->int_info,context->rip);
+        printf("\nError found at: 0x%p\n",context->rip);
         if(context->int_num==14)
         {//page fault
             printf("Accessed address: 0x%p\n",paging::get_cr2());
@@ -326,15 +339,22 @@ namespace multitasking
         asm volatile("hlt");
     }
 
+    
     void abort(const char* msg)
     {
-        if(process_array[execution_index].level==interrupt::privilege_level_t::system)
+        if(process_array[execution_index].level==interrupt::privilege_level_t::system || force_panic)
         {
             panic(msg);
         }
         else
         {
-            //printf("\nProcess %ld aborted, reason: %s\n", execution_index, interrupt::isr_messages[process_array[execution_index].context->int_num]);
+            if(process_array[execution_index].context->int_num<interrupt::ISR_SIZE)
+                printf("\033c\x0cProcess %ld aborted, reason: %s ", execution_index, interrupt::isr_messages[process_array[execution_index].context->int_num]);
+            else
+                printf("\033c\x0cProcess %ld aborted ", execution_index);
+            if(msg)
+                printf("message: %s",msg);
+            printf("\n");
             destroy_process(execution_index);
         }
     }

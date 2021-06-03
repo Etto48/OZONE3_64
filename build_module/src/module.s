@@ -7,6 +7,7 @@ _start:
     push %rsi
 
 ///call global initializers
+
 	movabs $__preinit_array_start, %rbx
 1:	movabs $__preinit_array_end, %rcx
     cmpq %rcx, %rbx
@@ -15,7 +16,9 @@ _start:
 	addq $8, %rbx
 	jmp 1b
 2:
+ 
     ///call global initializers
+
 	movabs $__init_array_start, %rbx
 1:	movabs $__init_array_end, %rcx
     cmpq %rcx, %rbx
@@ -31,6 +34,7 @@ _start:
     push %rax
 
 ///call global initializers
+
 	movabs $__fini_array_start, %rbx
 1:	movabs $__fini_array_end, %rcx
     cmpq %rcx, %rbx

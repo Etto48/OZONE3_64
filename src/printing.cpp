@@ -45,6 +45,10 @@ void kprint(const char* string)
             cury++;
             string++;
 			break;
+		case '\r':
+			curx = 0;
+			string++;
+			break;
 		case '\033':
 			switch (*++string)
 			{
@@ -70,6 +74,13 @@ void kprint(const char* string)
             kscroll();
         }
     }
+}
+
+void println(const char* str)
+{
+	if(str)//super wrong, check if str is in process memory
+		kprint(str);
+	kprint("\n");
 }
 
 int printf(const char* fmt, ...)

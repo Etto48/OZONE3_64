@@ -15,7 +15,9 @@ namespace syscalls
             clock::add_timer(context->rdx);
             break;
         case 2://exit
+            printf("Process %uld returned\n",multitasking::execution_index);
             multitasking::destroy_process(multitasking::execution_index);
+            multitasking::drop();//just to be sure
             break;
         case 3://create_semaphore
             context->rax = multitasking::create_semaphore(context->rdx);
@@ -29,11 +31,14 @@ namespace syscalls
         case 6://fork
             context->rax = multitasking::fork((void(*)())context->rdx);
             break;
-        case 7:
+        case 7://new
             context->rax = (uint64_t)multitasking::process_array[multitasking::execution_index].process_heap.malloc(context->rdx);
             break;
-        case 8:
+        case 8://delete
             multitasking::process_array[multitasking::execution_index].process_heap.free((void*)context->rdx);
+            break;
+        case 9://println
+            println((char*)context->rdx);
             break;
         default:
             break;
@@ -44,9 +49,15 @@ namespace syscalls
     extern "C" void* sys_call_system(interrupt::context_t* context, uint64_t sys_call_number)
     {
         //rdx = arg0
+        //rcx = arg1
+        //r8  = arg2
+        //r9  = arg3
         multitasking::save_state(context);
         switch (sys_call_number)
         {
+        case 0://summon
+            //multitasking::summon();
+            break;
         default:
             break;
         }

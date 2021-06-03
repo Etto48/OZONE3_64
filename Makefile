@@ -44,6 +44,8 @@ MODULES		:=	$(foreach _mod,$(sort $(dir $(wildcard $(MOD_SRC)/modules/*/))), $(l
 
 GRUB_CFG	:=	$(BIN_DIR)/isodir/boot/grub/grub.cfg
 
+BINARIES	:=	$(SO) $(foreach _mod,$(MODULES),$(MOD_BIN)/$(_mod).bin)
+
 .PHONY: clean test disk iso lib $(MODULES) all_mods $(GRUB_CFG)
 
 all: $(ISO) $(SO) $(HEADERS) $(LIB) $(MODULES)
@@ -79,6 +81,7 @@ $(OBJ_DIR)/%.cpp.o: $(LIB_DIR)/%.cpp lib/ozone.h
 clean:
 	@echo Cleaning Object Files
 	@-rm $(OBJ_DIR)/*.o
+	@-rm $(LIB)
 	@-rm $(MOD_OBJ)/*.o
 
 disk: $(ISO)

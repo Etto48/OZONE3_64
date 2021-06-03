@@ -39,6 +39,10 @@ namespace user
     {
         return sys_call_n(6,(uint64_t)main);
     }
+    void println(const char* str)
+    {
+        sys_call_n(9,(uint64_t)str);
+    }
 };
 
 void* operator new(size_t size)
@@ -55,10 +59,13 @@ void operator delete(void* address)
 
 namespace system
 {
-    uint64_t sys_call_n(uint64_t sys_call_number,uint64_t arg0)
+    uint64_t sys_call_n(uint64_t sys_call_number,uint64_t arg0,uint64_t arg1,uint64_t arg2,uint64_t arg3)
     {
         uint64_t ret;
         asm volatile("mov %0, %%rdx"::"r"(arg0));
+        asm volatile("mov %0, %%rcx"::"r"(arg1));
+        asm volatile("mov %0, %%r8"::"r"(arg2));
+        asm volatile("mov %0, %%r9"::"r"(arg3));
         asm volatile("mov %0, %%rsi"::"r"(sys_call_number));
         asm volatile("int $0x81");
         asm volatile("mov %%rax, %0" : "=r"(ret));

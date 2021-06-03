@@ -2,6 +2,7 @@
 #include "interrupt.h"
 #include "paging.h"
 #include "heap.h"
+#include <ozone.h>
 
 namespace multitasking
 {
@@ -41,10 +42,11 @@ namespace multitasking
 
     constexpr uint64_t MAX_PROCESS_NUMBER = 1024;
     constexpr uint64_t MAX_SEMAPHORE_NUMBER = 1024;
+    constexpr bool force_panic = false;
     extern process_descriptor_t process_array[MAX_PROCESS_NUMBER];
     extern semaphore_descriptor_t semaphore_array[MAX_SEMAPHORE_NUMBER];
     extern volatile uint64_t execution_index;
-    extern uint64_t process_count;
+    extern volatile uint64_t process_count;
 
     extern process_descriptor_t* ready_queue;
     extern process_descriptor_t* last_ready;

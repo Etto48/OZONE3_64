@@ -153,14 +153,66 @@ mbi:
     .skip 120
 
 .section .rodata
-gdt64:
+/*gdt64:
     .quad 0 #null entry
 #           executable      descriptor_type     present         64bit
 .set code_segment, . - gdt64
     .quad   (1<<43)|        (1<<44)|            (1<<47)|        (1<<53) #code segment system
 #                                                                           user
     .quad   (1<<43)|        (1<<44)|            (1<<47)|        (1<<53)|    (0b11<<45)#code segment user
-    .quad                   (1<<44)|            (1<<47)|                    (0b11<<45)
+    .quad                   (1<<44)|            (1<<47)|                    (0b11<<45) */
+.global gdt64
+gdt64:
+	.quad 0		    #segmento nullo
+code_sys_seg:
+	.word 0b0           #limit[15:0]   not used
+	.word 0b0           #base[15:0]    not used
+	.byte 0b0           #base[23:16]   not used
+	.byte 0b10011010    #P|DPL|1|1|C|R|A|  DPL=00=sistema
+	.byte 0b00100000    #G|D|L|-|-------|  L=1 long mode
+	.byte 0b0           #base[31:24]   not used
+code_usr_seg:
+	.word 0b0           #limit[15:0]   not used
+	.word 0b0           #base[15:0]    not used
+	.byte 0b0           #base[23:16]   not used
+	.byte 0b11111010    #P|DPL|1|1|C|R|A|  DPL=11=utente
+	.byte 0b00100000    #G|D|L|-|-------|  L=1 long mode
+	.byte 0b0           #base[31:24]   not used
+data_usr_seg:
+	.word 0b0           #limit[15:0]   not used
+	.word 0b0           #base[15:0]    not used
+	.byte 0b0           #base[23:16]   not used
+	.byte 0b11110010    #P|DPL|1|0|E|W|A|  DPL=11=utente
+	.byte 0b00000000    #G|D|-|-|-------|
+	.byte 0b0           #base[31:24]   not used
+.global tss_seg
+tss_seg:
+	.word (tss_end-tss-1)           #limit[15:0]   
+	.word 0           #base[15:0]    
+	.byte 0           #base[23:16]   
+	.byte 0x89    #P|DPL|1|0|E|W|A|  access
+	.byte 0x40    #G|D|-|-|-------| flags
+	.byte 0           #base[31:24]  
+    .quad 0
+gdt_end:
+
 gdt64.pointer:
-    .word . - gdt64 - 1
+    .word gdt_end - gdt64 - 1
     .quad gdt64
+.global tss
+tss:
+	.long 0
+.global tss_stack_pointer0
+.global tss_stack_pointer1
+.global tss_stack_pointer2
+tss_stack_pointer0:
+	.quad 0
+tss_stack_pointer1:
+    .quad 0
+tss_stack_pointer2:
+    .quad 0
+	.space 11 * 6, 0
+	.word 0
+	.word tss_end - tss - 1
+.global tss_end
+tss_end:

@@ -1,44 +1,4 @@
 
-.macro pushaq
-    push %gs
-    push %fs
-    push %r15
-    push %r14
-    push %r13
-    push %r12
-    push %r11
-    push %r10
-    push %r9
-    push %r8
-    push %rbp
-    push %rdi
-    push %rsi
-    push %rdx
-    push %rcx
-    push %rbx
-    push %rax
-.endm
-
-.macro popaq
-    pop %rax
-    pop %rbx
-    pop %rcx
-    pop %rdx
-    pop %rsi
-    pop %rdi
-    pop %rbp
-    pop %r8
-    pop %r9
-    pop %r10
-    pop %r11
-    pop %r12
-    pop %r13
-    pop %r14
-    pop %r15
-    pop %fs
-    pop %gs
-.endm
-
 .section .text
 .code64
 .global long_mode_start
@@ -62,7 +22,29 @@ long_mode_start:
 	addq $8, %rbx
 	jmp 1b
 	// il resto dell'inizializzazione e' scritto in C++
-2:	popq %rdi
+2:	
 
+    call init_tss
+
+    popq %rdi
     call kmain
     hlt
+
+init_tss:
+    movq $tss_seg, %rdx
+	movw $(104 - 1), (%rdx) 	#[15:0] = limit[15:0]
+	movq $tss, %rax
+	movw %ax, 2(%rdx)	#[31:16] = base[15:0]
+	shrq $16,%rax
+	movb %al, 4(%rdx)	#[39:32] = base[24:16]
+	movb $0b10001001, 5(%rdx)	#[47:40] = p_dpl_type
+	movb $0, 6(%rdx)	#[55:48] = 0
+	movb %ah, 7(%rdx)	#[63:56] = base[31:24]
+	shrq $16, %rax
+	movl %eax, 8(%rdx) 	#[95:64] = base[63:32]
+	movl $0, 12(%rdx)	#[127:96] = 0
+
+	movw $(32), %cx
+	ltr %cx
+
+    retq
