@@ -61,7 +61,7 @@ namespace multitasking
     }
     void add_ready(uint64_t process_id)//add to tail
     {
-        //printf("ADD %ld  ",process_id);
+        //debug::log(debug::level::inf,"ADD %uld ",process_id);
         //print_queue();
         add_to_list(process_id,ready_queue,last_ready);
     }
@@ -219,9 +219,50 @@ namespace multitasking
             return MAX_PROCESS_NUMBER;
     }
 
+    uint64_t remove_not_present(process_descriptor_t*& head,process_descriptor_t*& tail)
+    {
+        uint64_t removed = 0;
+        process_descriptor_t* last = nullptr;
+        process_descriptor_t* p;
+        for(p=head;p;p=p->next)
+        {
+            if(!p->is_present)//we need to remove this from the list
+            {
+                if(!last)//head
+                {
+                    if(head==tail)
+                        head=tail=nullptr;
+                    else
+                        head=p->next;
+
+                }
+                else
+                {
+                    if(!p->next)
+                    {
+                        last->next = nullptr;
+                        tail = last;
+                    }
+                    else
+                    {
+                        last->next = p->next;
+                    }
+                    
+                }
+                removed++;
+            }
+            else
+            {
+                last = p;
+            }
+        }
+        return removed;
+    }
+
     void destroy_semaphore(uint64_t id)
     {
         semaphore_array[id].is_present=false;
+
         while(semaphore_array[id].waiting_list_head)
         {
             add_ready(pop_from_list(semaphore_array[id].waiting_list_head,semaphore_array[id].waiting_list_tail));
@@ -261,7 +302,18 @@ namespace multitasking
                     destroy_process(i);
                 }
             }
-            //we should remove it from the lists but we don't care, just check if is present before executing
+            //check if the process is present in some list, in case remove it
+            remove_not_present(ready_queue,last_ready);
+            for(uint64_t i = 0;i<MAX_SEMAPHORE_NUMBER;i++)
+            {
+                if(semaphore_array[i].is_present)
+                {
+                    auto removed_asking = remove_not_present(semaphore_array[i].waiting_list_head,semaphore_array[i].waiting_list_tail);
+                    semaphore_array[i].count+=removed_asking;
+                }
+            }
+            //we should check if the clock list is cleared now
+            debug::log(debug::level::inf,"Process %uld destroyed",id);
         }
     }
 
@@ -293,7 +345,7 @@ namespace multitasking
     void drop()
     {
         scheduler_timer_ticks = 0;
-        debug::log(debug::level::inf,"process dropped");
+        //debug::log(debug::level::inf,"process dropped");
         execution_index = next_present_process();
     }
     void next()
@@ -306,6 +358,7 @@ namespace multitasking
             {
                 execution_index = next_present_process();
                 add_ready(last_exec);
+                //debug::log(debug::level::inf,"process swapped");
             } while (ready_queue && execution_index == 0);
         }
     }

@@ -20,7 +20,7 @@ namespace syscalls
 {
     extern "C" void* sys_call(interrupt::context_t* context, uint64_t sys_call_number)
     {
-        debug::log(debug::level::inf, "SYSCALL %s",multitasking::syscalls_names[sys_call_number]);
+        //debug::log(debug::level::inf, "SYSCALL %s",multitasking::syscalls_names[sys_call_number]);
         //rdx = arg0
         //rcx = arg1
         multitasking::save_state(context);
