@@ -4,7 +4,7 @@
 
 namespace user
 {
-    uint64_t sys_call_n(uint64_t sys_call_number,uint64_t arg0 = 0);
+    uint64_t sys_call_n(uint64_t sys_call_number,uint64_t arg0 = 0, uint64_t arg1 = 0);
 
     //returns the id of the current process
     uint64_t get_id();

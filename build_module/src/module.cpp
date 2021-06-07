@@ -1,6 +1,10 @@
 #include <ozone.h>
 
-extern "C" void fin()
+extern "C" int main();
+extern "C" void fini();
+extern "C" void wrapper()
 {
+    uint64_t ret = main();
+    //fini();
     user::exit();
 }

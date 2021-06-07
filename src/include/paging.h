@@ -148,7 +148,7 @@ namespace paging
             void* new_frame = phisical_address;
             l1_table->set_entry(l1_loop_index,new_frame,low_level_flags);
         }
-        //printf("MAP from: %p n: %uld, level: %s\n",virtual_address,page_count,flags&flags::USER?"user":"system");
+        //debug::log(debug::level::inf,"MAP from: %p n: %uld, level: %s",virtual_address,page_count,flags&flags::USER?"user":"system");
         return (void*)0xffffffffffffffff;
     }
     template <typename T>

@@ -45,7 +45,7 @@ namespace kernel
         //user::fork(test_process4);
         //user::fork(test_process5);
         //user::sleep(6000);
-        test_anim(0x70,79,0);
+        //test_anim(0x70,79,0);
     }
     void nproc()
     {
@@ -63,11 +63,12 @@ namespace kernel
         clock::init();
         printf("\033c\x02""Clock initialized\n");
         
-        user::fork(nproc);
+        //user::fork(nproc);
         user::fork(test_process);
-        
 
-        while(true);//idle in case of need;
+        while(true)
+            debug::log(debug::level::inf,"X");
+            
     }
 
 

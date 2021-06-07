@@ -2,10 +2,11 @@
 
 namespace user
 {
-    uint64_t sys_call_n(uint64_t sys_call_number,uint64_t arg0)
+    uint64_t sys_call_n(uint64_t sys_call_number,uint64_t arg0,uint64_t arg1)
     {
         uint64_t ret;
         asm volatile("mov %0, %%rdx"::"r"(arg0));
+        asm volatile("mov %0, %%rcx"::"r"(arg1));
         asm volatile("mov %0, %%rsi"::"r"(sys_call_number));
         asm volatile("int $0x80");
         asm volatile("mov %%rax, %0" : "=r"(ret));
@@ -36,8 +37,8 @@ namespace user
         sys_call_n(5,semaphore_id);
     }
     uint64_t fork(void (*main)())
-    {
-        return sys_call_n(6,(uint64_t)main);
+    {//we should pass the address of user::exit()
+        return sys_call_n(6,(uint64_t)main,(uint64_t)user::exit);
     }
     /*void println(const char* str)
     {

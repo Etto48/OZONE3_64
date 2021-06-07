@@ -9,6 +9,7 @@
 #include "multitasking.h"
 #include "kernel_process.h"
 #include "heap.h"
+#include "debug.h"
 #include <ozone.h>
 
 extern "C" void kmain();

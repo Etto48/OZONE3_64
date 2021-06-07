@@ -17,7 +17,7 @@ LIBOBJFILES	:=	$(addprefix $(OBJ_DIR)/,$(patsubst %.s,%.s.o,$(notdir $(LIBASFILE
 
 linker		:=	$(SRC_DIR)/linker.ld
 
-CXXFLAGS = -ffreestanding -mcmodel=large -mno-red-zone -nostdlib -lgcc -g -Ilib
+CXXFLAGS = -ffreestanding -mcmodel=large -mno-red-zone -nostdlib -lgcc -g -Ilib -static
 ASFLAGS = -felf64 -F dwarf -g
 
 version		:=	3.0.0
@@ -46,16 +46,18 @@ GRUB_CFG	:=	$(BIN_DIR)/isodir/boot/grub/grub.cfg
 
 BINARIES	:=	$(SO) $(foreach _mod,$(MODULES),$(MOD_BIN)/$(_mod).bin)
 
+QEMUARGS	:=	-m 1024 -serial stdio
+
 .PHONY: clean test disk iso lib $(MODULES) all_mods $(GRUB_CFG)
 
 all: $(ISO) $(SO) $(HEADERS) $(LIB) $(MODULES)
 test: $(ISO)
 	@echo Starting Emulation
-	@qemu-system-x86_64 -cdrom $(ISO)
+	@qemu-system-x86_64 $(QEMUARGS) -cdrom $(ISO)
 dbg: clean $(ISO)
 	@echo Starting Debug
 	@gnome-terminal -- gdb $(SO) --eval-command="target remote localhost:3117" &
-	@qemu-system-x86_64 -cdrom $(ISO) -gdb tcp::3117 -S
+	@qemu-system-x86_64 $(QEMUARGS) -cdrom $(ISO) -gdb tcp::3117 -S
 
 
 $(SO): $(linker) $(OBJFILES) $(HEADERS) $(LIB)
@@ -80,9 +82,9 @@ $(OBJ_DIR)/%.cpp.o: $(LIB_DIR)/%.cpp lib/ozone.h
 
 clean:
 	@echo Cleaning Object Files
-	@-rm $(OBJ_DIR)/*.o ||:
-	@-rm $(LIB) ||:
-	@-rm $(MOD_OBJ)/*.o ||:
+	@rm -f $(OBJ_DIR)/*.o
+	@rm -f $(LIB) 
+	@rm -f $(MOD_OBJ)/*.o
 
 disk: $(ISO)
 	@echo I\'m going to write the ISO on /dev/sdb
@@ -91,7 +93,7 @@ disk: $(ISO)
 
 $(ISO): $(SO) $(MODULES) $(HEADERS) $(GRUB_CFG)
 	@echo Creaning $@
-	@-rm $(BIN_DIR)/isodir/boot/*.bin $(ISO) ||:
+	@rm -f $(BIN_DIR)/isodir/boot/*.bin $(ISO)
 	@cp $(SO) $(BIN_DIR)/isodir/boot/
 	@cp $(MOD_BIN)/* $(BIN_DIR)/isodir/boot/
 	@grub-mkrescue -o $(ISO) $(BIN_DIR)/isodir 2>&-

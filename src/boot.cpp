@@ -3,6 +3,8 @@
 extern "C" void kmain()
 {
     clear(0x07);
+    debug::init();
+    debug::log(debug::level::inf,"---- OZONE for AMD64 ----");
     printf("\033c\x70Welcome to OZONE3 for AMD64!\n");
     paging::init_frame_mapping(&boot_info::mbi);
     printf("\033c\x02""Frame mapping initialized\n");
@@ -34,7 +36,7 @@ extern "C" void kmain()
             else
             {
                 auto pid = multitasking::create_process((void*)entry,ptrie,level,multitasking::MAX_PROCESS_NUMBER);
-                printf("  Module %uld loaded as process %uld, entrypoint at %p\n",mn,pid,entry);
+                printf("  Module %uld loaded as process %uld\n",mn,pid);
             }
         }
     }

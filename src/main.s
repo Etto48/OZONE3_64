@@ -133,6 +133,34 @@ error:
     mov %al, 0xb800a
     hlt
     
+
+.code64
+.global init_tss
+init_tss:
+    # inizializziamo il tss_seg
+	movq $tss_seg, %rdx
+	movw $(tss_end - tss - 1), (%rdx) 	#[15:0] = limit[15:0]
+	movq $tss, %rax
+	movw %ax, 2(%rdx)	#[31:16] = base[15:0]
+	shrq $16,%rax
+	movb %al, 4(%rdx)	#[39:32] = base[24:16]
+	movb $0b10001001, 5(%rdx)	#[47:40] = p_dpl_type
+	movb $0, 6(%rdx)	#[55:48] = 0
+	movb %ah, 7(%rdx)	#[63:56] = base[31:24]
+	shrq $16, %rax
+	movl %eax, 8(%rdx) 	#[95:64] = base[63:32]
+	movl $0, 12(%rdx)	#[127:96] = 0
+
+	lgdt gdt64.pointer
+	movw $(tss_seg - gdt64), %cx
+    or $3, %cx
+	ltr %cx
+
+    mov sys_stack_base, %rcx
+    mov %rcx, tss_stack_pointer
+
+	retq
+
 .section .bss
 .align 0x1000
 .global identity_l4_table
@@ -187,11 +215,11 @@ data_usr_seg:
 	.byte 0b0           #base[31:24]   not used
 .global tss_seg
 tss_seg:
-	.word (tss_end-tss-1)           #limit[15:0]   
+	.word 0           #limit[15:0]   
 	.word 0           #base[15:0]    
 	.byte 0           #base[23:16]   
-	.byte 0x89    #P|DPL|1|0|E|W|A|  access
-	.byte 0x40    #G|D|-|-|-------| flags
+	.byte 0    #P|DPL|1|0|E|W|A|  access
+	.byte 0    #G|D|-|-|-------| flags
 	.byte 0           #base[31:24]  
     .quad 0
 gdt_end:
@@ -200,19 +228,16 @@ gdt64.pointer:
     .word gdt_end - gdt64 - 1
     .quad gdt64
 .global tss
+
 tss:
 	.long 0
-.global tss_stack_pointer0
-.global tss_stack_pointer1
-.global tss_stack_pointer2
-tss_stack_pointer0:
+.global tss_stack_pointer
+tss_stack_pointer:
 	.quad 0
-tss_stack_pointer1:
-    .quad 0
-tss_stack_pointer2:
-    .quad 0
-	.space 11 * 6, 0
+	.space 12 * 8, 0
 	.word 0
-	.word tss_end - tss - 1
+	.word 0
 .global tss_end
 tss_end:
+
+

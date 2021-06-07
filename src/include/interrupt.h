@@ -20,7 +20,7 @@ namespace interrupt
         call_gate,
         trap_gate
     };
-    struct context_t
+    struct  context_t
     {
         uint64_t rax, rbx, rcx, rdx,
             rsi, rdi, 

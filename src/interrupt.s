@@ -40,21 +40,70 @@
     pop %gs
 .endm
 
+.set RAX,       0x0
+.set RBX,       0x8
+.set RCX,       0x10
+.set RDX,       0x18
+.set RSI,       0x20
+.set RDI,       0x28
+.set RBP,       0x30
+.set R8,        0x38
+.set R9,        0x40
+.set R10,       0x48
+.set R11,       0x50
+.set R12,       0x58
+.set R13,       0x60
+.set R14,       0x68
+.set R15,       0x70
+.set FS,        0x78
+.set GS,        0x80
+.set INTNUM,    0x88
+.set INTINFO,   0x90
+.set RIP,       0x98
+.set CS,        0xa0
+.set RFLAGS,    0xa8
+.set RSP,       0xb0
+.set SS,        0xb8
+
 .macro proc_to_sys
     pushaq
     mov %rsp, %rdi 
-    mov system_stack, %rsp
-    mov system_base, %rbp
+
+    mov system_common_stack, %rsp
+    #mov tss_stack_pointer, %rsp
+    #mov tss_stack_pointer, %rbp
 .endm
 
 .macro sys_to_proc
-    mov %rsp, system_stack
-    mov %rbp, system_base
-    mov %rax, %rsp
-    add  $192, %rax
-    movq %rax, tss_stack_pointer0
-    popaq
-    add $16, %rsp
+
+    mov sys_stack_base, %r8
+    mov %r8, tss_stack_pointer
+    
+    mov GS(%rax), %gs
+    mov FS(%rax), %fs
+    mov R15(%rax), %r15
+    mov R14(%rax), %r14
+    mov R13(%rax), %r13
+    mov R12(%rax), %r12
+    mov R11(%rax), %r11
+    mov R10(%rax), %r10
+    mov R9(%rax), %r9
+    mov R8(%rax), %r8
+    mov RBP(%rax), %rbp
+    mov RDI(%rax), %rdi
+    mov RSI(%rax), %rsi
+    mov RDX(%rax), %rdx
+    mov RCX(%rax), %rcx
+    mov RBX(%rax), %rbx
+
+    pushq SS(%rax)
+    pushq RSP(%rax)
+    pushq RFLAGS(%rax)
+    pushq CS(%rax)
+    pushq RIP(%rax)
+
+    mov RAX(%rax), %rax
+
 .endm
 
 .global load_idt
@@ -137,7 +186,7 @@ isr7:
     pushq $7 
     jmp isr_common_handler_wrapper
 isr8:
-    //pushq 1
+    //pushq $0
     pushq $8 
     jmp isr_common_handler_wrapper
 isr9:
@@ -386,10 +435,6 @@ sys_call_wrapper_system:
     sys_to_proc
     iretq
 
-.section .data
-system_stack:
+system_common_stack:
     .quad stack_top
-system_base:
-    .quad stack_top
-
 

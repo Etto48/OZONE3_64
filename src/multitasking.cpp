@@ -2,10 +2,6 @@
 
 namespace multitasking
 {
-    constexpr uint64_t stack_pages = 256;
-    constexpr uint64_t stack_bottom_address = 0xffffffffffffffff;
-    constexpr uint64_t stack_top_address = stack_bottom_address - (256*0x1000-1);
-
     process_descriptor_t process_array[MAX_PROCESS_NUMBER];
     semaphore_descriptor_t semaphore_array[MAX_SEMAPHORE_NUMBER];
     volatile uint64_t execution_index = MAX_PROCESS_NUMBER;//for forcing the scheduler to initialize
@@ -13,6 +9,11 @@ namespace multitasking
 
     process_descriptor_t* ready_queue = nullptr;
     process_descriptor_t* last_ready = nullptr;
+
+    extern "C"
+    { 
+        uint64_t sys_stack_base = system_stack_bottom_address;
+    }
 
     void print_queue()
     {
@@ -129,14 +130,14 @@ namespace multitasking
         }
     }
 
-    uint64_t fork(void(*main)())
+    uint64_t fork(void(*main)(),void(*exit)())
     {
         auto l4 = paging::table_alloc();
         auto& ol4 = process_array[execution_index].paging_root;
         l4->copy_from(*ol4,0,512);
         uint16_t stack_index = ((uint64_t)stack_top_address & (0x00000000001ff000UL<<27))>>(12+27);
         l4->set_entry(stack_index,nullptr,0);
-        return create_process((void*)main,l4,process_array[execution_index].level,execution_index);
+        return create_process((void*)main,l4,process_array[execution_index].level,execution_index,exit);
     }
 
     void init_process_array()
@@ -149,18 +150,26 @@ namespace multitasking
 
     void* create_stack(paging::page_table_t* paging_root,interrupt::privilege_level_t privilege_level)
     {
-        uint16_t flags = paging::flags::RW;
         if(privilege_level==interrupt::privilege_level_t::user)
-            flags|=paging::flags::USER;
-        paging::map((void*)stack_top_address,stack_pages,flags,paging_root,[](void* virtual_address,bool big_pages){return paging::frame_alloc();},false);
-        return (void*)stack_bottom_address;
+        {
+            uint16_t flags = paging::flags::RW | paging::flags::USER;
+            auto ret = paging::map((void*)stack_top_address,stack_pages,flags,paging_root,[](void* virtual_address,bool big_pages){return paging::frame_alloc();},false);
+            if(ret != (void*)0xffffffffffffffff)
+                abort("Process user stack not created");
+        }
+        uint16_t sys_flags = paging::flags::RW;
+        auto ret = paging::map((void*)system_stack_top_address,stack_pages,sys_flags,paging_root,[](void* virtual_address,bool big_pages){return paging::frame_alloc();},false);
+        if(ret != (void*)0xffffffffffffffff)
+            abort("Process system stack not created");
+        return (void*)(privilege_level==interrupt::privilege_level_t::user?stack_bottom_address:system_stack_bottom_address);
     }
     void destroy_stack(paging::page_table_t* paging_root)
     {
         paging::unmap((void*)stack_top_address,stack_pages,paging_root,[](void* phisical_address,bool big_pages){return paging::free_frame(phisical_address);},false);
+        paging::unmap((void*)system_stack_top_address,stack_pages,paging_root,[](void* phisical_address,bool big_pages){return paging::free_frame(phisical_address);},false);
     }
 
-    uint64_t create_process(void* entrypoint,paging::page_table_t* paging_root,interrupt::privilege_level_t level,uint64_t father_id)
+    uint64_t create_process(void* entrypoint,paging::page_table_t* paging_root,interrupt::privilege_level_t level,uint64_t father_id, void(*fin)())
     {
         if(process_count<MAX_PROCESS_NUMBER)
         {
@@ -168,22 +177,24 @@ namespace multitasking
             auto last_trie = paging::get_current_trie();
             paging::set_current_trie(paging_root);
 
-            auto stack_base = (void*)((uint64_t)create_stack(paging_root,level) - 8);
-            interrupt::context_t* context = (interrupt::context_t*)((uint64_t)stack_base-sizeof(interrupt::context_t));
-            context->ss = level==interrupt::privilege_level_t::user?interrupt::GDT_USER_DATA_SEGMENT:0;
-            context->cs = level==interrupt::privilege_level_t::user?interrupt::GDT_USER_CODE_SEGMENT:interrupt::GDT_SYSTEM_CODE_SEGMENT;
+            auto stack_base = (void*)((uint64_t)create_stack(paging_root,level)-16);
+            //interrupt::context_t* context = (interrupt::context_t*)((uint64_t)stack_base-sizeof(interrupt::context_t));
+            interrupt::context_t context;
+            context.ss = level==interrupt::privilege_level_t::user?interrupt::GDT_USER_DATA_SEGMENT:0;
+            context.cs = level==interrupt::privilege_level_t::user?interrupt::GDT_USER_CODE_SEGMENT:interrupt::GDT_SYSTEM_CODE_SEGMENT;
             constexpr uint64_t IF = 0x0200;
             constexpr uint64_t IOPL = 0x3000;
-            context->rflags = level==interrupt::privilege_level_t::user?IF:IF|IOPL;
-            context->rip = (uint64_t)entrypoint;
-            context->rsp = (uint64_t)stack_base;
-            context->rbp = (uint64_t)stack_base;
-            context->rax = context->rbx = context->rcx = context->rdx = 
-                context->rsi = context->rdi =
-                context->r8 = context->r9 = context->r10 = context->r11 = context->r12 = context->r13 = context->r14 = context->r15 = context->fs = context->gs = context->int_num = context->int_info = 0;
+            context.rflags = level==interrupt::privilege_level_t::user?IF:IF|IOPL;
+            context.rip = (uint64_t)entrypoint;
+            context.rsp = (uint64_t)stack_base;
+            context.rbp = (uint64_t)stack_base;
+            context.rax = context.rbx = context.rcx = context.rdx = 
+                context.rsi = context.rdi =
+                context.r8 = context.r9 = context.r10 = context.r11 = context.r12 = context.r13 = context.r14 = context.r15 = context.fs = context.gs = context.int_num = context.int_info = 0;
 
             //tricks the function to call automatically user::exit() it reaches the end (it can cause a crash in user code we need to fix this later)
-            *(void**)((uint64_t)context+sizeof(interrupt::context_t)) = (void*)user::exit;
+            *(void**)((uint64_t)stack_base) = (void*)fin;
+            
 
             uint64_t process_id = get_available_index();
 
@@ -193,13 +204,13 @@ namespace multitasking
             process_array[process_id].level = level;
             process_array[process_id].paging_root = paging_root;
             process_array[process_id].context = context;
-            process_array[process_id].data_pointer = stack_base;
+            //process_array[process_id].data_pointer = stack_base;
             
-            process_array[process_id].process_heap = heap{(void*)stack_top_address,1024*1024};
+            process_array[process_id].process_heap = heap{(void*)(level==interrupt::privilege_level_t::user?stack_top_address:system_stack_top_address),1024*1024};
             process_array[process_id].next = nullptr;
 
             paging::set_current_trie(last_trie);
-
+            debug::log(debug::level::inf,"Process %uld created, level: %s",process_id,level==interrupt::privilege_level_t::user?"user":"system");
             process_count++;
             add_ready(process_id);
             return process_id;
@@ -282,6 +293,7 @@ namespace multitasking
     void drop()
     {
         scheduler_timer_ticks = 0;
+        debug::log(debug::level::inf,"process dropped");
         execution_index = next_present_process();
     }
     void next()
@@ -299,20 +311,33 @@ namespace multitasking
     }
 
 
-    const char* syscalls_names[] =
+    
+    void log_panic(const char* message)
     {
-        "get_id",
-        "sleep",
-        "die",
-        "create_semaphore",
-        "acquire_semaphore",
-        "release_semaphore",
-
-    };
-
+        auto context = &process_array[execution_index].context;
+        debug::log(debug::level::err,"----------------------------------------");
+        debug::log(debug::level::err,"Process %uld crashed",execution_index);
+        if(context->int_num<32)
+            debug::log(debug::level::err,"Cause: %s (0x%x)",interrupt::isr_messages[context->int_num],context->int_info);
+        else if(context->int_num>=32&&context->int_num<32+24)
+            debug::log(debug::level::err,"Cause: Error during IRQ number %uld",context->int_num-32);
+        else if(context->int_num==0x80)
+            debug::log(debug::level::err,"Cause: Error during syscall %s",syscalls_names[context->rdi]);
+        else 
+            debug::log(debug::level::err,"Cause: INT %uld (%uld)",context->int_num, context->int_info);
+        debug::log(debug::level::err,"RIP: 0x%p",context->rip);
+        if(context->int_num==14)
+        {//page fault
+            debug::log(debug::level::err,"Accessed address: 0x%p",paging::get_cr2());
+        }
+        debug::log(debug::level::err,"CS:0x%p SS:0x%p",context->cs,context->ss);
+        debug::log(debug::level::err,"Stack Pointer: 0x%p",context->rsp);
+        debug::log(debug::level::err,"Base pointer: 0x%p",context->rbp);
+        debug::log(debug::level::err,"----------------------------------------");
+    }
     void panic(const char* message)
     {
-        auto context = process_array[execution_index].context;
+        auto context = &process_array[execution_index].context;
         clear(0x4f);
         printf("\033c\xf4KERNEL PANIC\n");
         if(message)
@@ -325,10 +350,24 @@ namespace multitasking
             printf("Error during IRQ number %uld",context->int_num-32);
         else if(context->int_num==0x80)
             printf("Error during syscall %s",syscalls_names[context->rdi]);
-        printf("\nError found at: 0x%p\n",context->rip);
+        else 
+            printf("INT %uld (%uld)",context->int_num, context->int_info);
+        printf("\nRIP: 0x%p\n",context->rip);
         if(context->int_num==14)
         {//page fault
             printf("Accessed address: 0x%p\n",paging::get_cr2());
+            printf("Error flags: ");
+            if(context->int_info & (1<<0))
+                printf("[Present] ");
+            if(context->int_info & (1<<1))
+                printf("[Write] ");
+            if(context->int_info & (1<<2))
+                printf("[User] ");
+            if(context->int_info & (1<<3))
+                printf("[Reserved write] ");
+            if(context->int_info & (1<<4))
+                printf("[Instruction fetch]");
+            printf("\n");
         }
         printf("\nFlags: 0b%b\nCS: 0x%p\n",context->rflags,context->cs);
         printf("RAX:0x%p RBX:0x%p\nRCX:0x%p RDX:0x%p\nRSI:0x%p RDI:0x%p\n",context->rax,context->rbx,context->rcx,context->rdx,context->rsi,context->rdi);
@@ -344,17 +383,19 @@ namespace multitasking
     {
         if(process_array[execution_index].level==interrupt::privilege_level_t::system || force_panic)
         {
+            debug::log(debug::level::err,"KERNEL PANIC");
             panic(msg);
         }
         else
         {
-            if(process_array[execution_index].context->int_num<interrupt::ISR_SIZE)
+            /*if(process_array[execution_index].context->int_num<interrupt::ISR_SIZE)
                 printf("\033c\x0cProcess %ld aborted, reason: %s ", execution_index, interrupt::isr_messages[process_array[execution_index].context->int_num]);
             else
                 printf("\033c\x0cProcess %ld aborted ", execution_index);
             if(msg)
                 printf("message: %s",msg);
-            printf("\n");
+            printf("\n");*/
+            log_panic(msg);
             destroy_process(execution_index);
         }
     }
@@ -363,7 +404,7 @@ namespace multitasking
         //current process is execution_index if it's valid
         if(execution_index<MAX_PROCESS_NUMBER)
         {//save the current state to the process descriptor
-            process_array[execution_index].context = context;
+            process_array[execution_index].context = *context;
         }
     }
     interrupt::context_t* load_state()
@@ -373,7 +414,8 @@ namespace multitasking
         //once we know which process to run, update cr3 and stack pointer, the rest of the context
         //will be automatically restored before iret
         paging::set_current_trie(process_array[execution_index].paging_root);//change cr3
-        return process_array[execution_index].context;
+
+        return &process_array[execution_index].context;
     }
 
 };
