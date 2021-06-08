@@ -105,7 +105,7 @@ $(GRUB_CFG):
 	@echo 'menuentry "OZONE3 AMD64" {' >> $(GRUB_CFG)
 	@echo '    multiboot /boot/$(SO_NAME).bin' >> $(GRUB_CFG)
 	@for module in $(MODULES) ; do \
-        echo "    module /boot/$$module.bin" >> $(GRUB_CFG); \
+        echo "    module /boot/$$module.bin $$module" >> $(GRUB_CFG); \
     done
 	@echo '    boot' >> $(GRUB_CFG)
 	@echo '}' >> $(GRUB_CFG)

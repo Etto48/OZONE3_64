@@ -36,11 +36,11 @@ extern "C" void kmain()
             else
             {
                 auto pid = multitasking::create_process((void*)entry,ptrie,level,multitasking::MAX_PROCESS_NUMBER);
-                printf("  Module %uld loaded as process %uld\n",mn,pid);
+                printf("  Module %s(%uld) loaded as process %uld\n",modr.cmdline,mn,pid);
             }
         }
     }
-    else
+    else 
     {
         printf("\033c\x0cNo modules found\0330\n");
     }

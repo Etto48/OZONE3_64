@@ -58,24 +58,27 @@ int main()
             }
             else//key down
             {
+                if(!is_key_pressed[scancode])
+                {//keydown
+                    switch (scancode)
+                    {
+                    case CAPS_LOCK:
+                        is_caps_lock_active = !is_caps_lock_active;
+                        led_changed = true;
+                        break;
+                    case NUM_LOCK:
+                        is_num_lock_active = !is_num_lock_active;
+                        led_changed = true;
+                        break;
+                    case SCROLL_LOCK:
+                        is_scroll_lock_active = !is_scroll_lock_active;
+                        led_changed = true;
+                        break;
+                    default:
+                        break;
+                    }
+                }
                 is_key_pressed[scancode]=true;
-            }
-            switch (scancode)
-            {
-            case CAPS_LOCK:
-                is_caps_lock_active = !is_caps_lock_active;
-                led_changed = true;
-                break;
-            case NUM_LOCK:
-                is_num_lock_active = !is_num_lock_active;
-                led_changed = true;
-                break;
-            case SCROLL_LOCK:
-                is_scroll_lock_active = !is_scroll_lock_active;
-                led_changed = true;
-                break;
-            default:
-                break;
             }
             if(led_changed)
                 set_kb_leds(is_caps_lock_active,is_num_lock_active,is_scroll_lock_active);
