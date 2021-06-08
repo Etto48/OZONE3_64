@@ -24,6 +24,7 @@ namespace syscalls
         //rdx = arg0
         //rcx = arg1
         multitasking::save_state(context);
+        context = &multitasking::process_array[multitasking::execution_index].context;
         switch (sys_call_number)
         {
         case 0://get_id
@@ -71,10 +72,22 @@ namespace syscalls
         //r8  = arg2
         //r9  = arg3
         multitasking::save_state(context);
+        context = &multitasking::process_array[multitasking::execution_index].context;
         switch (sys_call_number)
         {
-        case 0://summon
-            //multitasking::summon();
+        case 0://set_driver
+            interrupt::set_driver(context->rdx,multitasking::execution_index);
+            break;
+        case 1://wait_for_interrupt
+            for(uint64_t irq=0;irq<interrupt::IRQ_SIZE;irq++)
+            {
+                auto& d = interrupt::io_descriptor_array[irq];
+                if(d.id==multitasking::execution_index)
+                {
+                    apic::send_EOI(interrupt::ISR_SIZE+irq);
+                }
+            }
+            multitasking::drop();
             break;
         default:
             break;

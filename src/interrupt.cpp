@@ -21,6 +21,8 @@ namespace interrupt
 
     void (*irq_callbacks[IRQ_SIZE])(context_t* context);
 
+    io_descriptor_t io_descriptor_array[IRQ_SIZE];
+
     constexpr uint16_t DPL_SYSTEM = 0;
     constexpr uint64_t DPL_USER = 0b01100000;
 
@@ -95,6 +97,10 @@ namespace interrupt
         {
             c=nullptr;
         }
+        for(auto& d:io_descriptor_array)
+        {
+            d = {multitasking::MAX_PROCESS_NUMBER,false};
+        }
         memory::memset(IDT,0,IDTR.limit+1);
         for(uint64_t i = 0;i<IDT_SIZE;i++)
         {
@@ -122,11 +128,20 @@ namespace interrupt
     extern "C" void* irq_handler(context_t* context)
     {
         multitasking::save_state(context);
-        if(irq_callbacks[context->int_num-ISR_SIZE])
+        auto irq_num = context->int_num-ISR_SIZE;
+        if(irq_callbacks[irq_num])
         {
-            irq_callbacks[context->int_num-ISR_SIZE](context);
+            irq_callbacks[irq_num](context);
         }
-        apic::send_EOI(context->int_num);
+        if(io_descriptor_array[irq_num].is_present)
+        {
+            multitasking::process_array[io_descriptor_array[irq_num].id].context.rax = multitasking::execution_index;
+            multitasking::add_ready(io_descriptor_array[irq_num].id);
+        }//only send eoi when the process calls wait_for_interrupt
+        else
+        {
+            apic::send_EOI(context->int_num);
+        }
         return multitasking::load_state();
     }
     extern "C" void* unknown_interrupt(context_t* context)
@@ -170,4 +185,26 @@ namespace interrupt
         "Reserved",
     	"Reserved"
     };
+
+    void reset_driver(uint64_t irq_number)
+    {
+        if(irq_number<IRQ_SIZE)
+        {
+            io_descriptor_array[irq_number].is_present=false;
+            debug::log(debug::level::inf,"Driver %ud cleared",irq_number);
+        }
+    }
+    void set_driver(uint64_t irq_number,uint64_t process_id)
+    {
+        if(
+            irq_number<IRQ_SIZE 
+            && process_id<multitasking::MAX_PROCESS_NUMBER 
+            && multitasking::process_array[process_id].is_present 
+            && multitasking::process_array[process_id].level==interrupt::privilege_level_t::system
+        )
+        {
+            io_descriptor_array[irq_number]={process_id,true};
+            debug::log(debug::level::inf,"Process %uld is set as driver %ud",process_id,irq_number);
+        }
+    }
 };

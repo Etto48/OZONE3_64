@@ -91,6 +91,44 @@ namespace clock
         }
     }
 
+    uint64_t clean_timer_list()
+    {
+        uint64_t removed = 0;
+        process_timer_t* last = nullptr;
+        process_timer_t* p;
+        process_timer_t* to_free = nullptr;
+        for(p=timer_list;p;p=p->next)
+        {
+            if(to_free)
+            {
+                system_heap.free(to_free);
+                to_free = nullptr;
+            }
+            if(!multitasking::process_array[p->id].is_present)
+            {
+                if(!last)
+                {
+                    timer_list = p->next;
+                }
+                else
+                {
+                    last->next = p->next;
+                }
+                if(p->next)
+                {
+                    p->next->ticks+=p->ticks;
+                }
+                to_free = p;
+                removed++;
+            }
+            else
+            {
+                last = p;
+            }
+        }
+        return removed;
+    }
+
     void add_timer(uint64_t ticks)
     {
         process_timer_t* last = nullptr;

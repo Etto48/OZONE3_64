@@ -31,4 +31,9 @@ void operator delete(void* address);
 namespace system
 {
     uint64_t sys_call_n(uint64_t sys_call_number,uint64_t arg0 = 0,uint64_t arg1 = 0,uint64_t arg2 = 0,uint64_t arg3 = 0);
+
+    //sets the current process as the driver for the selected irq
+    void set_driver(uint64_t irq_number);
+    //waits for the next interrupt associated with the process, returns the id of the interrupted process
+    uint64_t wait_for_interrupt();
 };

@@ -234,7 +234,6 @@ namespace multitasking
                         head=tail=nullptr;
                     else
                         head=p->next;
-
                 }
                 else
                 {
@@ -247,7 +246,6 @@ namespace multitasking
                     {
                         last->next = p->next;
                     }
-                    
                 }
                 removed++;
             }
@@ -312,8 +310,36 @@ namespace multitasking
                     semaphore_array[i].count+=removed_asking;
                 }
             }
-            //we should check if the clock list is cleared now
+            clock::clean_timer_list();
+
             debug::log(debug::level::inf,"Process %uld destroyed",id);
+        }
+    }
+
+    bool is_process_memory(void* start, size_t len, uint64_t id)
+    {
+        uint64_t s = (uint64_t)start;
+        if(!process_array[id].is_present)
+            return false;
+        else if(!memory::is_normalized(start))
+            return false;
+        else if(process_array[id].level==interrupt::privilege_level_t::system)
+            return true;
+        else
+        {
+            auto offset = s & 0xfff;
+            auto l = len+offset;
+            s = s & ~0xfff;
+            auto num_pages = l%0x1000==0?(l/0x1000):(l/0x1000+1);
+
+            for(uint64_t i = 0;i<num_pages;i++)
+            {
+                if(!paging::virtual_to_phisical((void*)(s+i*0x1000),process_array[id].paging_root))
+                    return false;
+                else if(paging::get_level((void*)(s+i*0x1000),process_array[id].paging_root)!=interrupt::privilege_level_t::user)
+                    return false;
+            }
+            return true;
         }
     }
 

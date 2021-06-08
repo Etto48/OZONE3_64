@@ -3,7 +3,7 @@
 #include "interrupt.h"
 #include "multitasking.h"
 #include "heap.h"
-#include "io.h"
+#include <io.h>
 
 namespace clock
 {
@@ -11,5 +11,6 @@ namespace clock
     void init();
     void callback(interrupt::context_t* context);
 
+    uint64_t clean_timer_list();
     void add_timer(uint64_t ticks);
 };

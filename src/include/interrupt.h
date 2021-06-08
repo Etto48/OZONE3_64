@@ -20,7 +20,7 @@ namespace interrupt
         call_gate,
         trap_gate
     };
-    struct  context_t
+    struct context_t
     {
         uint64_t rax, rbx, rcx, rdx,
             rsi, rdi, 
@@ -55,6 +55,12 @@ namespace interrupt
         idt_entry_t* offset;
     } __attribute__ ((packed));
 
+    struct io_descriptor_t
+    {
+        uint64_t id;
+        bool is_present = false;
+    };
+
     constexpr uint64_t IDT_SIZE = 256;
     constexpr uint64_t ISR_SIZE = 32;
     constexpr uint64_t IRQ_SIZE = 24;
@@ -62,11 +68,15 @@ namespace interrupt
     extern idtr_t IDTR;
     extern idt_entry_t IDT[IDT_SIZE];
 
+    extern io_descriptor_t io_descriptor_array[IRQ_SIZE];
+
     extern "C" void load_idt(idtr_t& idtr);
     extern "C" void* isr_handler(context_t* context);//returns the address of the context_t of the new process
     extern "C" void* irq_handler(context_t* context);
     extern "C" void* unknown_interrupt(context_t* context);
     void init_interrupts();
+
+    void set_driver(uint64_t irq_number,uint64_t process_id);
 
     extern void (*irq_callbacks[IRQ_SIZE])(context_t* context);
     extern const char* isr_messages[];

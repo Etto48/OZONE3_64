@@ -190,6 +190,43 @@ namespace paging
         free_table(trie_root);
     }
 
+    interrupt::privilege_level_t get_level(void* virtual_address,page_table_t* trie_root)
+    {
+        uint16_t l4_index = ((uint64_t)virtual_address & (0x00000000001ff000UL<<27))>>(12+27);
+        uint16_t l3_index = ((uint64_t)virtual_address & (0x00000000001ff000UL<<18))>>(12+18);
+        uint16_t l2_index = ((uint64_t)virtual_address & (0x00000000001ff000UL<<9))>>(12+9);
+        uint16_t l1_index = ((uint64_t)virtual_address & (0x00000000001ff000UL<<0))>>(12);
+        uint16_t offset =   ((uint64_t)virtual_address & (0x0000000000000fffUL));
+
+        if(trie_root)
+        {
+            if(trie_root->is_present(l4_index) && trie_root->data[l4_index]&paging::flags::USER)
+            {
+                auto l3 = trie_root->operator[](l4_index);
+                if(l3->is_present(l3_index) && l3->data[l3_index]&paging::flags::USER)
+                {
+                    auto l2 = l3->operator[](l3_index);
+                    if(l2->is_present(l2_index) && l2->data[l2_index]&paging::flags::USER)
+                    {
+                        if(l2->data[l2_index] & paging::flags::BIG)
+                        {
+                            return interrupt::privilege_level_t::user;
+                        }
+                        else
+                        {
+                            auto l1 = l2->operator[](l2_index);
+                            if(l1->is_present(l1_index) && l1->data[l1_index]&paging::flags::USER)
+                            {
+                                return interrupt::privilege_level_t::user;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return interrupt::privilege_level_t::system;
+    }
+
     void* virtual_to_phisical(void* virtual_address,page_table_t* trie_root)
     {
         uint16_t l4_index = ((uint64_t)virtual_address & (0x00000000001ff000UL<<27))>>(12+27);
@@ -208,11 +245,19 @@ namespace paging
                     auto l2 = l3->operator[](l3_index);
                     if(l2->is_present(l2_index))
                     {
-                        auto l1 = l2->operator[](l2_index);
-                        if(l1->is_present(l1_index))
+                        if(l2->data[l2_index]&paging::flags::BIG)
                         {
-                            auto address = (uint64_t)l1->operator[](l1_index);
-                            return (void*)(address + offset);
+                            auto address = (uint64_t)l2->operator[](l1_index);
+                            return (void*)(address + offset + (l1_index<<12));
+                        }
+                        else
+                        {
+                            auto l1 = l2->operator[](l2_index);
+                            if(l1->is_present(l1_index))
+                            {
+                                auto address = (uint64_t)l1->operator[](l1_index);
+                                return (void*)(address + offset);
+                            }
                         }
                     }
                 }

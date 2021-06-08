@@ -5,11 +5,11 @@ namespace user
     uint64_t sys_call_n(uint64_t sys_call_number,uint64_t arg0,uint64_t arg1)
     {
         uint64_t ret;
-        asm volatile("mov %0, %%rdx"::"r"(arg0));
-        asm volatile("mov %0, %%rcx"::"r"(arg1));
-        asm volatile("mov %0, %%rsi"::"r"(sys_call_number));
+        asm("mov %0, %%rdx"::"r"(arg0));
+        asm("mov %0, %%rcx"::"r"(arg1));
+        asm("mov %0, %%rsi"::"r"(sys_call_number));
         asm volatile("int $0x80");
-        asm volatile("mov %%rax, %0" : "=r"(ret));
+        asm("mov %%rax, %0" : "=r"(ret));
         return ret;
     }
     uint64_t get_id()
@@ -63,13 +63,22 @@ namespace system
     uint64_t sys_call_n(uint64_t sys_call_number,uint64_t arg0,uint64_t arg1,uint64_t arg2,uint64_t arg3)
     {
         uint64_t ret;
-        asm volatile("mov %0, %%rdx"::"r"(arg0));
-        asm volatile("mov %0, %%rcx"::"r"(arg1));
-        asm volatile("mov %0, %%r8"::"r"(arg2));
-        asm volatile("mov %0, %%r9"::"r"(arg3));
-        asm volatile("mov %0, %%rsi"::"r"(sys_call_number));
+        asm("mov %0, %%rdx"::"r"(arg0));
+        asm("mov %0, %%rcx"::"r"(arg1));
+        asm("mov %0, %%r8"::"r"(arg2));
+        asm("mov %0, %%r9"::"r"(arg3));
+        asm("mov %0, %%rsi"::"r"(sys_call_number));
         asm volatile("int $0x81");
-        asm volatile("mov %%rax, %0" : "=r"(ret));
+        asm("mov %%rax, %0" : "=r"(ret));
         return ret;
+    }
+
+    void set_driver(uint64_t irq_number)
+    {
+        sys_call_n(0,irq_number);
+    }
+    uint64_t wait_for_interrupt()
+    {
+        return sys_call_n(1);
     }
 };

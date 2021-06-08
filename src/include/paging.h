@@ -257,3 +257,10 @@ namespace paging
 
     void* extend_identity_mapping();
 };
+
+#include "interrupt.h"
+
+namespace paging
+{
+    interrupt::privilege_level_t get_level(void* virtual_address,page_table_t* trie_root);  
+};

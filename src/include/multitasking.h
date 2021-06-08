@@ -101,6 +101,9 @@ namespace multitasking
     uint64_t create_process(void* entrypoint,paging::page_table_t* paging_root,interrupt::privilege_level_t level,uint64_t father_id, void(*fin)() = user::exit);
     void destroy_process(uint64_t id);
 
+    //returns true if the selected memory space is accessible by the process, false if it's not
+    bool is_process_memory(void* start, size_t len, uint64_t id);
+
     //updates execution_index with the index of the next process to run
     void scheduler();
     //if the current process is no more ready for some reason, a call to this function will exclude if from scheduling
@@ -119,5 +122,5 @@ namespace multitasking
     interrupt::context_t* load_state();
 
 };
-
+#include "clock.h"
 #include "debug.h"
