@@ -2,15 +2,15 @@
 
 namespace kernel
 {
-    void test_anim(uint8_t color,uint8_t x, uint8_t y)
+    void test_anim(uint8_t color, uint8_t x, uint8_t y)
     {
-        uint64_t i=0;
+        uint64_t i = 0;
         char anim[] = "/-\\|";
-        while(true)
+        while (true)
         {
-            put_char(anim[i],color,x,y);
+            put_char(anim[i], color, x, y);
             i++;
-            i%=4;
+            i %= 4;
             user::sleep(100);
         }
     }
@@ -45,30 +45,42 @@ namespace kernel
         //user::fork(test_process4);
         //user::fork(test_process5);
         //user::sleep(6000);
-        test_anim(0x70,79,0);
+        test_anim(0x70, 79, 0);
     }
-    void nproc()
+
+    void test_ret()
     {
         while(true)
         {
-            printf("Number of processes: %uld    \r",multitasking::process_count);
+            printf("%c",keyboard::getc());
+        }
+    }
+
+    void nproc()
+    {
+        while (true)
+        {
+            printf("Number of processes: %uld    \r", multitasking::process_count);
         }
         printf("\n");
     }
     void init()
     {
-        printf("\033c\x0b""Entered multitasking mode\n");
+        printf("\033c\x0b"
+               "Entered multitasking mode\n");
         apic::init();
-        printf("\033c\x02""Apic initialized\n");
+        printf("\033c\x02"
+               "Apic initialized\n");
         clock::init();
-        printf("\033c\x02""Clock initialized\n");
-        
-        user::fork(nproc);
+        printf("\033c\x02"
+               "Clock initialized\n");
+
+        //user::fork(nproc);
         user::fork(test_process);
+        user::fork(test_ret);
 
-        while(true);
-            
+        while (true)
+            ;
     }
-
 
 };

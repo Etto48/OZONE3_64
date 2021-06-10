@@ -4,7 +4,8 @@ namespace modules
 {
 	// oggetto da usare con 'map' per il caricamento in memoria virtuale dei
 	// segmenti ELF dei moduli utente e I/O
-	struct copy_segment {
+	struct copy_segment
+	{
 		// Il segmento si trova in memoria agli indirizzi (fisici) [beg, end)
 		// e deve essere visibile in memoria virtuale a partire dall'indirizzo
 		// virt_beg. Il segmento verrà copiato (una pagina alla volta) in
@@ -16,12 +17,12 @@ namespace modules
 
 		// funzione chiamata da map. Deve restituire l'indirizzo fisico
 		// da far corrispondere all'indirizzo virtuale 'v'.
-		void* operator()(void*,bool);
+		void *operator()(void *, bool);
 	};
 
-	void* copy_segment::operator()(void* vv, bool big_pages)
+	void *copy_segment::operator()(void *vv, bool big_pages)
 	{
-		uint64_t v = (uint64_t) vv;
+		uint64_t v = (uint64_t)vv;
 		// allochiamo un frame libero in cui copiare la pagina
 		uint64_t dst = (uint64_t)paging::frame_alloc();
 		if (dst == 0)
@@ -38,30 +39,31 @@ namespace modules
 		if (src > mod_end)
 			tocopy = 0;
 		else if (mod_end - src < 0x1000)
-			tocopy =  mod_end - src;
+			tocopy = mod_end - src;
 		if (tocopy > 0)
-			memory::memcpy(reinterpret_cast<void*>(dst), reinterpret_cast<void*>(src), tocopy);
+			memory::memcpy(reinterpret_cast<void *>(dst), reinterpret_cast<void *>(src), tocopy);
 		if (tocopy < 0x1000)
-			memory::memset(reinterpret_cast<void*>(dst + tocopy), 0, 0x1000 - tocopy);
-		return (void*)dst;
+			memory::memset(reinterpret_cast<void *>(dst + tocopy), 0, 0x1000 - tocopy);
+		return (void *)dst;
 	}
 
 	// carica un modulo in M2 e lo mappa al suo indirizzo virtuale, aggiungendo
 	// heap_size byte di heap dopo l'ultimo indirizzo virtuale usato.
 	//
 	// 'flags' dovrebbe essere BIT_US oppure zero.
-	void(*load_module(multiboot_module_t* mod, paging::page_table_t* root_tab, interrupt::privilege_level_t privilege_level))()
+	void (*load_module(multiboot_module_t *mod, paging::page_table_t *root_tab, interrupt::privilege_level_t privilege_level))()
 	{
 		// puntatore all'intestazione ELF
-		Elf64_Ehdr* elf_h  = reinterpret_cast<Elf64_Ehdr*>(mod->mod_start);
+		Elf64_Ehdr *elf_h = reinterpret_cast<Elf64_Ehdr *>(mod->mod_start);
 		// indirizzo fisico della tabella dei segmenti
 		uint64_t ph_addr = mod->mod_start + elf_h->e_phoff;
 		// ultimo indirizzo virtuale usato
 		uint64_t last_vaddr = 0;
 
 		// esaminiamo tutta la tabella dei segmenti
-		for (int i = 0; i < elf_h->e_phnum; i++) {
-			Elf64_Phdr* elf_ph = reinterpret_cast<Elf64_Phdr*>(ph_addr);
+		for (int i = 0; i < elf_h->e_phnum; i++)
+		{
+			Elf64_Phdr *elf_ph = reinterpret_cast<Elf64_Phdr *>(ph_addr);
 
 			// ci interessano solo i segmenti di tipo PT_LOAD
 			if (elf_ph->p_type != PT_LOAD)
@@ -71,16 +73,16 @@ namespace modules
 			// [mod_beg, mod_end) devono diventare visibili nell'intervallo
 			// di indirizzi virtuali [virt_beg, virt_end).
 			uint64_t virt_beg = elf_ph->p_vaddr,
-			      virt_end = virt_beg + elf_ph->p_memsz;
-			uint64_t mod_beg  = mod->mod_start + elf_ph->p_offset,
-			      mod_end  = mod_beg + elf_ph->p_filesz;
+					 virt_end = virt_beg + elf_ph->p_memsz;
+			uint64_t mod_beg = mod->mod_start + elf_ph->p_offset,
+					 mod_end = mod_beg + elf_ph->p_filesz;
 
 			// se necessario, allineiamo alla pagina gli indirizzi di
 			// partenza e di fine
 			uint64_t page_offset = virt_beg & (0x1000 - 1);
 			virt_beg -= page_offset;
-			mod_beg  -= page_offset;
-			virt_end = (uint64_t)memory::align((void*)virt_end, 0x1000);
+			mod_beg -= page_offset;
+			virt_end = (uint64_t)memory::align((void *)virt_end, 0x1000);
 
 			// aggiorniamo l'ultimo indirizzo virtuale usato
 			if (virt_end > last_vaddr)
@@ -88,19 +90,19 @@ namespace modules
 
 			// settiamo BIT_RW nella traduzione solo se il segmento è
 			// scrivibile
-			uint16_t flags = privilege_level == interrupt::privilege_level_t::user? paging::flags::USER : 0;
+			uint16_t flags = privilege_level == interrupt::privilege_level_t::user ? paging::flags::USER : 0;
 
 			if (elf_ph->p_flags & PF_W)
 				flags |= paging::flags::RW;
 
 			// mappiamo il segmento
 			auto map_ret = paging::map(
-					(void*)virt_beg,
-					(virt_end-virt_beg)/0x1000,
-					flags,
-					root_tab,
-			    	copy_segment{mod_beg, mod_end, virt_beg});
-			if (map_ret != (void*)0xFFFFFFFFFFFFFFFF)
+				(void *)virt_beg,
+				(virt_end - virt_beg) / 0x1000,
+				flags,
+				root_tab,
+				copy_segment{mod_beg, mod_end, virt_beg});
+			if (map_ret != (void *)0xFFFFFFFFFFFFFFFF)
 			{
 				//printf("\nMAP ERROR %p",map_ret);
 				return nullptr;
@@ -125,6 +127,6 @@ namespace modules
 		//flog(LOG_INFO, " - heap:                                 [%p, %p)",
 		//			last_vaddr, last_vaddr + heap_size);
 		//flog(LOG_INFO, " - entry point: %p", elf_h->e_entry);
-		return (void(*)())elf_h->e_entry;
+		return (void (*)())elf_h->e_entry;
 	}
 };

@@ -1,3 +1,4 @@
 obj/*.o
+obj/*.a
 bin/isodir/boot/*.bin
-.vscode
+.vscode/*.log

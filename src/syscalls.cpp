@@ -2,23 +2,25 @@
 
 namespace multitasking
 {
-    const char* syscalls_names[] =
-    {
-        "get_id",
-        "sleep",
-        "exit",
-        "create_semaphore",
-        "acquire_semaphore",
-        "release_semaphore",
-        "fork",
-        "new",
-        "delete",
+    const char *syscalls_names[] =
+        {
+            "get_id",
+            "sleep",
+            "exit",
+            "create_semaphore",
+            "acquire_semaphore",
+            "release_semaphore",
+            "fork",
+            "new",
+            "delete",
+            "join",
+            "driver_call"
     };
 };
 
 namespace syscalls
 {
-    extern "C" void* sys_call(interrupt::context_t* context, uint64_t sys_call_number)
+    extern "C" void *sys_call(interrupt::context_t *context, uint64_t sys_call_number)
     {
         //debug::log(debug::level::inf, "SYSCALL %s",multitasking::syscalls_names[sys_call_number]);
         //rdx = arg0
@@ -27,37 +29,38 @@ namespace syscalls
         context = &multitasking::process_array[multitasking::execution_index].context;
         switch (sys_call_number)
         {
-        case 0://get_id
-            context->rax=multitasking::execution_index;
+        case 0: //get_id
+            context->rax = multitasking::execution_index;
             break;
-        case 1://sleep
+        case 1: //sleep
             clock::add_timer(context->rdx);
             break;
-        case 2://exit
-            //printf("Process %uld returned\n",multitasking::execution_index);
-            multitasking::destroy_process(multitasking::execution_index);
-            multitasking::drop();//just to be sure
+        case 2: //exit
+            multitasking::exit(context->rdx);
             break;
-        case 3://create_semaphore
+        case 3: //create_semaphore
             context->rax = multitasking::create_semaphore(context->rdx);
             break;
-        case 4://acquire_semaphore
+        case 4: //acquire_semaphore
             multitasking::acquire_semaphore(context->rdx);
             break;
-        case 5://release_semaphore
+        case 5: //release_semaphore
             multitasking::release_semaphore(context->rdx);
             break;
-        case 6://fork
-            context->rax = multitasking::fork((void(*)())context->rdx,(void(*)())context->rcx);
+        case 6: //fork
+            context->rax = multitasking::fork(multitasking::execution_index,(void (*)())context->rdx, (void (*)())context->rcx);
             break;
-        case 7://new
+        case 7: //new
             context->rax = (uint64_t)multitasking::process_array[multitasking::execution_index].process_heap.malloc(context->rdx);
             break;
-        case 8://delete
-            multitasking::process_array[multitasking::execution_index].process_heap.free((void*)context->rdx);
+        case 8: //delete
+            multitasking::process_array[multitasking::execution_index].process_heap.free((void *)context->rdx);
             break;
-        case 9://println WIP
-            //println((char*)context->rdx);
+        case 9: //join
+            context->rax = multitasking::join(context->rdx);
+            break;
+        case 10://driver_call
+            context->rax = multitasking::driver_call(context->rdx,context->rcx);
             break;
         default:
             break;
@@ -65,7 +68,7 @@ namespace syscalls
         return multitasking::load_state();
     }
 
-    extern "C" void* sys_call_system(interrupt::context_t* context, uint64_t sys_call_number)
+    extern "C" void *sys_call_system(interrupt::context_t *context, uint64_t sys_call_number)
     {
         //rdx = arg0
         //rcx = arg1
@@ -75,19 +78,26 @@ namespace syscalls
         context = &multitasking::process_array[multitasking::execution_index].context;
         switch (sys_call_number)
         {
-        case 0://set_driver
-            interrupt::set_driver(context->rdx,multitasking::execution_index);
+        case 0: //set_driver
+            interrupt::set_driver(context->rdx,context->rcx,(void(*)())context->r8);
             break;
-        case 1://wait_for_interrupt
-            for(uint64_t irq=0;irq<interrupt::IRQ_SIZE;irq++)
+        case 1: //wait_for_interrupt
+            for (uint64_t irq = 0; irq < interrupt::IRQ_SIZE; irq++)
             {
-                auto& d = interrupt::io_descriptor_array[irq];
-                if(d.id==multitasking::execution_index)
+                auto &d = interrupt::io_descriptor_array[irq];
+                if (d.id == multitasking::execution_index)
                 {
-                    apic::send_EOI(interrupt::ISR_SIZE+irq);
+                    if(d.is_present)
+                    {
+                        apic::send_EOI(interrupt::ISR_SIZE + irq);
+                        d.is_ready = true;
+                    }
                 }
             }
             multitasking::drop();
+            break;
+        case 2:
+            interrupt::set_driver_function(context->rdx, context->rcx, (uint64_t(*)())context->r8);
             break;
         default:
             break;

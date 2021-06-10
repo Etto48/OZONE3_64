@@ -24,7 +24,7 @@ version		:=	3.0.0
 SO_NAME		:=	ozone-$(version)
 SO			:=	$(BIN_DIR)/$(SO_NAME).bin
 
-LIB			:=	$(LIB_DIR)/ozone.a
+LIB			:=	$(OBJ_DIR)/ozone.a
 
 ISO			:=	$(BIN_DIR)/$(SO_NAME).iso
 
@@ -48,17 +48,21 @@ BINARIES	:=	$(SO) $(foreach _mod,$(MODULES),$(MOD_BIN)/$(_mod).bin)
 
 QEMUARGS	:=	-m 1024 -serial stdio
 
-.PHONY: clean test disk iso lib $(MODULES) all_mods $(GRUB_CFG)
+.PHONY: dbg-server dbg clean test disk iso lib $(MODULES) all_mods $(GRUB_CFG)
 
 all: $(ISO) $(SO) $(HEADERS) $(LIB) $(MODULES)
 test: $(ISO)
 	@echo Starting Emulation
 	@qemu-system-x86_64 $(QEMUARGS) -cdrom $(ISO)
-dbg: clean $(ISO)
+
+dbg-server: $(ISO)
+	@echo Starting Debug Server
+	@qemu-system-x86_64 $(QEMUARGS) -cdrom $(ISO) -gdb tcp::3117 -S
+
+dbg: $(ISO)
 	@echo Starting Debug
 	@gnome-terminal -- gdb $(SO) --eval-command="target remote localhost:3117" &
 	@qemu-system-x86_64 $(QEMUARGS) -cdrom $(ISO) -gdb tcp::3117 -S
-
 
 $(SO): $(linker) $(OBJFILES) $(HEADERS) $(LIB)
 	@echo Creating $@
@@ -83,7 +87,7 @@ $(OBJ_DIR)/%.cpp.o: $(LIB_DIR)/%.cpp lib/ozone.h
 clean:
 	@echo Cleaning Object Files
 	@rm -f $(OBJ_DIR)/*.o
-	@rm -f $(LIB) 
+	@rm -f $(OBJ_DIR)/*.a
 	@rm -f $(MOD_OBJ)/*.o
 
 disk: $(ISO)

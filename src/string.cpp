@@ -1,12 +1,12 @@
 #include "include/string.h"
 #include "include/math.h"
 
-size_t strlen(const char* str) 
+size_t strlen(const char *str)
 {
-	size_t len = 0;
-	while (str[len])
-		len++;
-	return len;
+    size_t len = 0;
+    while (str[len])
+        len++;
+    return len;
 }
 /*WIP
 string::string()
@@ -234,4 +234,3 @@ string to_string(unsigned long long int number,int base,size_t min_chars)
     return ret;
 }
 */
-

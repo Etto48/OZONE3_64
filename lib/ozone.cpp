@@ -20,9 +20,9 @@ namespace user
     {
         sys_call_n(1,ticks);
     }
-    void exit()
+    void exit(uint64_t ret)
     {
-        sys_call_n(2);
+        sys_call_n(2,ret);
     }
     uint64_t create_semaphore(uint64_t start_count)
     {
@@ -36,14 +36,14 @@ namespace user
     {
         sys_call_n(5,semaphore_id);
     }
-    uint64_t fork(void (*main)())
-    {//we should pass the address of user::exit()
-        return sys_call_n(6,(uint64_t)main,(uint64_t)user::exit);
-    }
-    /*void println(const char* str)
+    uint64_t join(uint64_t id)
     {
-        sys_call_n(9,(uint64_t)str);
-    }*/
+        return sys_call_n(9,id);
+    }
+    uint64_t driver_call(uint64_t driver_number, uint64_t function_number)
+    {
+        return sys_call_n(10,driver_number,function_number);
+    }
 };
 
 void* operator new(size_t size)
@@ -54,6 +54,11 @@ void* operator new(size_t size)
 //{
 //}
 void operator delete(void* address)
+{
+    user::sys_call_n(8,(uint64_t)address);
+}
+
+void operator delete(void* address, unsigned long)
 {
     user::sys_call_n(8,(uint64_t)address);
 }
@@ -73,12 +78,16 @@ namespace system
         return ret;
     }
 
-    void set_driver(uint64_t irq_number)
+    void set_driver(uint64_t irq_number,uint64_t process_id)
     {
-        sys_call_n(0,irq_number);
+        sys_call_n(0,irq_number,process_id,(uint64_t)user::fin);
     }
     uint64_t wait_for_interrupt()
     {
         return sys_call_n(1);
+    }
+    void set_driver_function(uint64_t irq_number,uint64_t function_id, uint64_t(*function)())
+    {
+        sys_call_n(2,irq_number,function_id,(uint64_t)function);
     }
 };
