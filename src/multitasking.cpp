@@ -4,7 +4,9 @@ namespace multitasking
 {
     process_descriptor_t process_array[MAX_PROCESS_NUMBER];
     semaphore_descriptor_t semaphore_array[MAX_SEMAPHORE_NUMBER];
-    volatile uint64_t execution_index = MAX_PROCESS_NUMBER; //for forcing the scheduler to initialize
+    shm_descriptor_t shm_array[MAX_SHAREDMEMORY_NUMBER];
+
+    volatile ozone::pid_t execution_index = MAX_PROCESS_NUMBER; //for forcing the scheduler to initialize
     volatile uint64_t process_count = 0;
 
     process_descriptor_t *ready_queue = nullptr;
@@ -24,7 +26,7 @@ namespace multitasking
         printf("\n");
     }
 
-    void add_to_list(uint64_t process_id, process_descriptor_t *&head, process_descriptor_t *&tail)
+    void add_to_list(ozone::pid_t process_id, process_descriptor_t *&head, process_descriptor_t *&tail)
     {
         if (process_array[process_id].is_present)
         {
@@ -42,7 +44,7 @@ namespace multitasking
         }
     }
 
-    uint64_t pop_from_list(process_descriptor_t *&head, process_descriptor_t *&tail)
+    ozone::pid_t pop_from_list(process_descriptor_t *&head, process_descriptor_t *&tail)
     {
         if (!head)
             abort("Process requested but queue is empty");
@@ -53,22 +55,22 @@ namespace multitasking
         return ret;
     }
 
-    uint64_t pop_ready() //pop from top
+    ozone::pid_t pop_ready() //pop from top
     {
         //printf("POP    ");
         //print_queue();
         return pop_from_list(ready_queue, last_ready);
     }
-    void add_ready(uint64_t process_id) //add to tail
+    void add_ready(ozone::pid_t process_id) //add to tail
     {
         //debug::log(debug::level::inf,"ADD %uld ",process_id);
         //print_queue();
         add_to_list(process_id, ready_queue, last_ready);
     }
 
-    uint64_t get_available_index()
+    ozone::pid_t get_available_index()
     {
-        for (uint64_t i = 0; i < MAX_PROCESS_NUMBER; i++)
+        for (ozone::pid_t i = 0; i < MAX_PROCESS_NUMBER; i++)
         {
             if (!process_array[i].is_present)
             {
@@ -78,9 +80,9 @@ namespace multitasking
         return MAX_PROCESS_NUMBER;
     }
 
-    uint64_t get_available_semaphore()
+    ozone::semid_t get_available_semaphore()
     {
-        for (uint64_t i = 0; i < MAX_SEMAPHORE_NUMBER; i++)
+        for (ozone::semid_t i = 0; i < MAX_SEMAPHORE_NUMBER; i++)
         {
             if (!semaphore_array[i].is_present)
             {
@@ -90,7 +92,19 @@ namespace multitasking
         return MAX_SEMAPHORE_NUMBER;
     }
 
-    uint64_t create_semaphore(int64_t starting_count)
+    ozone::shmid_t get_available_shmemory()
+    {
+        for (ozone::shmid_t i = 0; i < MAX_SHAREDMEMORY_NUMBER; i++)
+        {
+            if (!shm_array[i].is_present)
+            {
+                return i;
+            }
+        }
+        return MAX_SHAREDMEMORY_NUMBER;
+    }
+
+    ozone::semid_t create_semaphore(int64_t starting_count)
     {
         auto id = get_available_semaphore();
         semaphore_array[id].is_present = true;
@@ -101,9 +115,9 @@ namespace multitasking
         return id;
     }
 
-    void acquire_semaphore(uint64_t semaphore_id)
+    void acquire_semaphore(ozone::semid_t semaphore_id)
     {
-        if (semaphore_array[semaphore_id].is_present)
+        if (semaphore_id < MAX_SEMAPHORE_NUMBER && semaphore_array[semaphore_id].is_present)
         {
             semaphore_array[semaphore_id].count--;
             if (semaphore_array[semaphore_id].count < 0) //move the current process into the waiting list
@@ -118,7 +132,7 @@ namespace multitasking
             abort("Semaphore no more present, maybe the creator process was closed?");
         }
     }
-    void release_semaphore(uint64_t semaphore_id)
+    void release_semaphore(ozone::semid_t semaphore_id)
     {
         if (semaphore_array[semaphore_id].is_present)
         {
@@ -130,16 +144,27 @@ namespace multitasking
         }
     }
 
-    uint64_t fork(uint64_t process_id, void (*main)(), void (*fin)())
+    ozone::pid_t fork(ozone::pid_t process_id, void (*main)(), void (*fin)())
     {
         if (process_array[process_id].is_present)
         {
             auto l4 = paging::table_alloc();
             auto &ol4 = process_array[process_id].paging_root;
-            l4->copy_from(*ol4, 0, 512);
-            uint16_t stack_index = ((uint64_t)stack_top_address & (0x00000000001ff000UL << 27)) >> (12 + 27);
-            l4->set_entry(stack_index, nullptr, 0);
-            return create_process((void *)main, l4, process_array[process_id].level, process_id, fin);
+            l4->copy_from(*ol4, 0, 1);
+            for (mapping_history_t *p = process_array[process_id].mapping_history; p; p = p->next)
+            {
+                if (paging::map(
+                        p->starting_address, p->npages, p->flags, l4, [ol4](void *vv, bool big_pages)
+                        {
+                            //debug::log(debug::level::wrn,"Frame mapped in copy");
+                            auto l1 = ol4->operator[](paging::get_index_of_level(vv, 4))->operator[](paging::get_index_of_level(vv, 3))->operator[](paging::get_index_of_level(vv, 2));
+                            return (void *)(big_pages ? l1 : l1->operator[](paging::get_index_of_level(vv, 1)));
+                        },
+                        p->flags & paging::flags::BIG) != (void *)0xffffffffffffffff)
+                    abort("Error in memory copy");
+            }
+
+            return create_process((void *)main, l4, process_array[process_id].level, process_id, process_array[process_id].mapping_history, fin);
         }
         else
             return MAX_PROCESS_NUMBER;
@@ -147,7 +172,7 @@ namespace multitasking
 
     void exit(uint64_t ret)
     {
-        debug::log(debug::level::inf,"Process %uld returned with code %uld",multitasking::execution_index,ret);
+        debug::log(debug::level::inf, "Process %uld returned with code %uld", multitasking::execution_index, ret);
         while (process_array[execution_index].waiting_head)
         {
             auto join_process = pop_from_list(
@@ -160,23 +185,36 @@ namespace multitasking
         drop(); //just to be sure
     }
 
-    uint64_t join(uint64_t pid)
+    void kill(ozone::pid_t process_id)
+    {
+        while (process_array[process_id].waiting_head)
+        {
+            auto join_process = pop_from_list(
+                process_array[process_id].waiting_head,
+                process_array[process_id].waiting_tail);
+            process_array[join_process].context.rax = 0;
+            add_ready(join_process);
+        }
+        destroy_process(process_id);
+    }
+
+    uint64_t join(ozone::pid_t pid)
     {
         bool permission_accepted = false;
         if (process_array[execution_index].level == interrupt::privilege_level_t::system || process_array[pid].level == interrupt::privilege_level_t::user)
             permission_accepted = true;
         else
         {
-            for(uint64_t i = 0;i<interrupt::IRQ_SIZE;i++)
+            for (uint64_t i = 0; i < interrupt::IRQ_SIZE; i++)
             {
-                if(interrupt::io_descriptor_array[i].is_present && process_array[interrupt::io_descriptor_array[i].id].is_present && process_array[pid].father_id==i)
+                if (interrupt::io_descriptor_array[i].is_present && process_array[interrupt::io_descriptor_array[i].id].is_present && process_array[pid].father_id == i)
                 {
                     permission_accepted = true;
                     break;
                 }
             }
         }
-        if(permission_accepted)
+        if (permission_accepted)
         {
             if (process_array[pid].is_present)
             {
@@ -193,7 +231,7 @@ namespace multitasking
             return 0;
     }
 
-    uint64_t driver_call(uint64_t driver_id, uint64_t function_id)
+    ozone::pid_t driver_call(uint64_t driver_id, uint64_t function_id)
     {
         if (driver_id < interrupt::IRQ_SIZE && function_id < interrupt::MAX_DRIVER_FUNCTIONS)
         {
@@ -212,9 +250,302 @@ namespace multitasking
         return MAX_PROCESS_NUMBER;
     }
 
+    void call_signal_handler(ozone::pid_t process_id, void (*handler)())
+    {
+
+        if (process_id < MAX_PROCESS_NUMBER && process_array[process_id].is_present)
+        {
+            auto &process = process_array[process_id];
+            if (!process.signal_descriptor.is_running_a_signal)
+            {
+                process.signal_descriptor.is_running_a_signal = true;
+                process.signal_descriptor.saved_context = process.context;
+                process.context.rip = (uint64_t)handler;
+                auto old_trie = paging::get_current_trie();
+                paging::set_current_trie(process.paging_root);
+
+                process.context.rsp -= 8;
+                *(void (**)())process.context.rsp = process.signal_descriptor.return_from_signal;
+
+                paging::set_current_trie(old_trie);
+            }
+        }
+    }
+
+    bool signal(ozone::pid_t source_process, ozone::signal_t signal, ozone::pid_t target_process)
+    {
+        if (target_process < MAX_PROCESS_NUMBER && source_process < MAX_PROCESS_NUMBER && process_array[target_process].is_present && process_array[source_process].is_present && (process_array[source_process].level == interrupt::privilege_level_t::system || (process_array[target_process].level == interrupt::privilege_level_t::user && process_array[target_process].father_id == process_array[source_process].father_id)))
+        {
+            const char *signals [] = {
+                "SIGKILL",
+                "SIGTERM",
+                "SIGSTOP",
+                "SIGCONT",
+                "SIGSEGV",
+                "SIGILL",
+                "SIGUSR1",
+                "SIGUSR2"
+            };
+            bool do_kill = false;
+            switch (signal)
+            {
+            case ozone::SIGKILL:
+                do_kill = true;
+                break;
+            case ozone::SIGTERM:
+                if (process_array[target_process].signal_descriptor.SIGTERM_handler)
+                    call_signal_handler(target_process, process_array[target_process].signal_descriptor.SIGTERM_handler);
+                else
+                    do_kill = true;
+                break;
+            case ozone::SIGSTOP:
+                //WIP
+                break;
+            case ozone::SIGCONT:
+                //WIP
+                break;
+            case ozone::SIGSEGV:
+                if (process_array[target_process].signal_descriptor.SIGSEGV_handler)
+                    call_signal_handler(target_process, process_array[target_process].signal_descriptor.SIGSEGV_handler);
+                else
+                    do_kill = true;
+                break;
+            case ozone::SIGILL:
+                if (process_array[target_process].signal_descriptor.SIGSEGV_handler)
+                    call_signal_handler(target_process, process_array[target_process].signal_descriptor.SIGSEGV_handler);
+                else
+                    do_kill = true;
+                break;
+            case ozone::SIGINT:
+                if (process_array[target_process].signal_descriptor.SIGINT_handler)
+                    call_signal_handler(target_process, process_array[target_process].signal_descriptor.SIGINT_handler);
+                else
+                    do_kill = true;
+                break;
+            case ozone::SIGUSR1:
+                if (process_array[target_process].signal_descriptor.SIGUSR1_handler)
+                    call_signal_handler(target_process, process_array[target_process].signal_descriptor.SIGUSR2_handler);
+                break;
+            case ozone::SIGUSR2:
+                if (process_array[target_process].signal_descriptor.SIGUSR2_handler)
+                    call_signal_handler(target_process, process_array[target_process].signal_descriptor.SIGUSR2_handler);
+                break;
+            default:
+                break;
+            }
+            if(do_kill)
+            {
+            debug::log(debug::level::wrn, "Process %uld terminated, reason: %s", target_process,signals[signal]);
+                kill(target_process);
+            }
+            return true;
+        }
+        else
+            return false;
+    }
+
+    void set_signal_handler(ozone::pid_t process_id, ozone::signal_t signal, void (*handler)(), void (*return_from_signal)())
+    {
+        if (process_id < MAX_PROCESS_NUMBER && process_array[process_id].is_present)
+        {
+            auto &process = process_array[process_id];
+            process.signal_descriptor.return_from_signal = return_from_signal;
+            switch (signal)
+            {
+            case ozone::SIGTERM:
+                process.signal_descriptor.SIGTERM_handler = handler;
+                break;
+            case ozone::SIGSEGV:
+                process.signal_descriptor.SIGSEGV_handler = handler;
+                break;
+            case ozone::SIGINT:
+                process.signal_descriptor.SIGINT_handler = handler;
+                break;
+            case ozone::SIGILL:
+                process.signal_descriptor.SIGILL_handler = handler;
+                break;
+            case ozone::SIGUSR1:
+                process.signal_descriptor.SIGUSR1_handler = handler;
+                break;
+            case ozone::SIGUSR2:
+                process.signal_descriptor.SIGUSR2_handler = handler;
+                break;
+            default:
+                break;
+            }
+        }
+    }
+
+    void return_from_signal(ozone::pid_t process_id)
+    {
+        if (process_id < MAX_PROCESS_NUMBER && process_array[process_id].is_present)
+        {
+            process_array[process_id].signal_descriptor.is_running_a_signal = false;
+            process_array[process_id].context = process_array[process_id].signal_descriptor.saved_context;
+        }
+    }
+
+    ozone::shmid_t shm_get(ozone::pid_t owner_id, bool user_rw, size_t size)
+    {
+        size = (size_t)memory::align((void *)size, 0x1000);
+        uint64_t npages = size / 0x1000;
+        if (npages == 0)
+            return MAX_SHAREDMEMORY_NUMBER;
+        auto id = get_available_shmemory();
+        shm_array[id].is_present = true;
+        shm_array[id].orphan = false;
+        shm_array[id].owner_id = owner_id;
+        shm_array[id].npages = npages;
+        shm_array[id].owner_flags;
+        shm_array[id].users = 0;
+        shm_array[id].owner_flags = paging::flags::PRESENT | paging::flags::RW | (process_array[owner_id].level == interrupt::privilege_level_t::user ? paging::flags::USER : 0);
+        shm_array[id].user_flags = paging::flags::PRESENT | (user_rw ? paging::flags::RW : 0) | paging::flags::USER;
+        shm_array[id].first_frame_index = paging::FRAME_COUNT;
+        shm_array[id].waiting_head = nullptr;
+        shm_array[id].waiting_tail = nullptr;
+        for (uint64_t i = 0; i < npages; i++)
+        {
+            auto f = paging::get_frame_index(paging::frame_alloc());
+            paging::frame_descriptors[f].next_free_frame_index = shm_array[id].first_frame_index;
+            shm_array[id].first_frame_index = f;
+        }
+        return id;
+    }
+
+    void shm_destroy(ozone::shmid_t id)
+    {
+        shm_array[id].is_present = false;
+        if (shm_array[id].users != 0)
+            abort("Shmem with users attached was deleted");
+        while (shm_array[id].first_frame_index != paging::FRAME_COUNT)
+        {
+            auto next = paging::frame_descriptors[shm_array[id].first_frame_index].next_free_frame_index;
+            paging::frame_descriptors[shm_array[id].first_frame_index].next_free_frame_index = 0;
+            paging::free_frame(paging::get_frame_address(shm_array[id].first_frame_index));
+            shm_array[id].first_frame_index = next;
+        }
+        while (shm_array[id].waiting_head)
+            add_ready(pop_from_list(shm_array[id].waiting_head, shm_array[id].waiting_tail));
+    }
+
+    void shm_wait_and_destroy(ozone::shmid_t id)
+    {
+        if (id < MAX_SHAREDMEMORY_NUMBER && shm_array[id].is_present)
+        {
+            if (shm_array[id].users == 0)
+            {
+                shm_destroy(id);
+            }
+            else
+            {
+                shm_detach(execution_index, id);
+                add_to_list(execution_index, shm_array[id].waiting_head, shm_array[id].waiting_tail);
+                drop();
+            }
+        }
+    }
+
+    struct shm_attacher
+    {
+        uint64_t frame_index;
+        shm_attacher(shm_descriptor_t &shmd)
+        {
+            frame_index = shmd.first_frame_index;
+        }
+        void *operator()(void *va, bool)
+        {
+            if (frame_index == paging::FRAME_COUNT)
+                abort("Fatal error during shared memory mapping");
+            auto ret = paging::get_frame_address(frame_index);
+            frame_index = paging::frame_descriptors[frame_index].next_free_frame_index;
+            return ret;
+        }
+    };
+    void *shm_attach(ozone::pid_t source_process, ozone::shmid_t id)
+    {
+        if (id < MAX_SHAREDMEMORY_NUMBER && shm_array[id].is_present)
+        {
+            if (source_process < MAX_PROCESS_NUMBER && process_array[source_process].is_present)
+            {
+                for (auto p = process_array[source_process].shmem_history; p; p = p->next) //check if already attached
+                {
+                    if (p->id == id)
+                        return p->starting_address;
+                }
+                debug::log(debug::level::inf, "Shmem %uld attached to process %uld", id, source_process);
+                shm_array[id].users++;
+
+                auto flags = shm_array[id].user_flags;
+                if (source_process == shm_array[id].owner_id)
+                {
+                    flags = shm_array[id].owner_flags;
+                }
+
+                uint64_t starting_address = 0xffffffff00000000;
+                //now we must calculate the starting address
+                if (process_array[source_process].shmem_history)
+                {
+                    starting_address = (uint64_t)process_array[source_process].shmem_history->starting_address;
+                    starting_address += (shm_array[process_array[source_process].shmem_history->id].npages + 1) * 0x1000;
+                }
+
+                if (paging::map((void *)starting_address, shm_array[id].npages, flags, process_array[source_process].paging_root, shm_attacher{shm_array[id]}, false) != (void *)0xffffffffffffffff)
+                    abort("Error after mapping");
+
+                auto new_shm_hystory = (shmem_attaching_history_t *)system_heap.malloc(sizeof(shmem_attaching_history_t));
+                new_shm_hystory->id = id;
+                new_shm_hystory->starting_address = (void *)starting_address;
+                new_shm_hystory->next = process_array[source_process].shmem_history;
+                process_array[source_process].shmem_history = new_shm_hystory;
+                return process_array[source_process].shmem_history->starting_address;
+            }
+        }
+        return nullptr;
+    }
+
+    bool shm_detach(ozone::pid_t source_process, ozone::shmid_t id)
+    {
+        if (id < MAX_SHAREDMEMORY_NUMBER && shm_array[id].is_present)
+        {
+            if (source_process < MAX_PROCESS_NUMBER && process_array[source_process].is_present)
+            {
+                shmem_attaching_history_t *last = nullptr;
+                auto p = process_array[source_process].shmem_history;
+                for (; p && p->id != id; p = p->next) //check if already attached
+                {
+                    last = p;
+                }
+                if (p) //we found it
+                {
+                    debug::log(debug::level::inf, "Shmem %uld detached from process %uld", id, source_process);
+                    shmem_attaching_history_t *to_remove = p;
+                    if (!last) //head
+                    {
+                        process_array[source_process].shmem_history = to_remove->next;
+                    }
+                    else
+                    {
+                        last->next = to_remove->next;
+                    }
+                    auto unm = paging::unmap(
+                        to_remove->starting_address, shm_array[to_remove->id].npages, process_array[source_process].paging_root, [](void *, bool) {}, false);
+                    if (unm != (void *)0xffffffffffffffff)
+                        abort("Error after unmapppinng");
+                    system_heap.free(to_remove);
+                    shm_array[id].users--;
+
+                    if (shm_array[id].users == 0 && (shm_array[id].waiting_head || shm_array[id].orphan)) //if we requested a destruction we must accomplish that
+                        shm_destroy(id);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     void init_process_array()
     {
-        for (uint64_t i = 0; i < MAX_PROCESS_NUMBER; i++)
+        for (ozone::pid_t i = 0; i < MAX_PROCESS_NUMBER; i++)
         {
             process_array[i].id = i;
         }
@@ -225,31 +556,29 @@ namespace multitasking
         if (privilege_level == interrupt::privilege_level_t::user)
         {
             uint16_t flags = paging::flags::RW | paging::flags::USER;
-            auto ret = paging::map((void *)stack_top_address, stack_pages, flags, paging_root, [](void *virtual_address, bool big_pages)
-                                   { return paging::frame_alloc(); },
-                                   false);
-            if (ret != (void *)0xffffffffffffffff)
+            if (paging::map((void *)stack_top_address, stack_pages, flags, paging_root, [](void *virtual_address, bool big_pages)
+                            { return paging::frame_alloc(); },
+                            false) != (void *)0xffffffffffffffff)
                 abort("Process user stack not created");
         }
         uint16_t sys_flags = paging::flags::RW;
-        auto ret = paging::map((void *)system_stack_top_address, stack_pages, sys_flags, paging_root, [](void *virtual_address, bool big_pages)
-                               { return paging::frame_alloc(); },
-                               false);
-        if (ret != (void *)0xffffffffffffffff)
+        if (paging::map((void *)system_stack_top_address, stack_pages, sys_flags, paging_root, [](void *virtual_address, bool big_pages)
+                        { return paging::frame_alloc(); },
+                        false) != (void *)0xffffffffffffffff)
             abort("Process system stack not created");
         return (void *)(privilege_level == interrupt::privilege_level_t::user ? stack_bottom_address : system_stack_bottom_address);
     }
     void destroy_stack(paging::page_table_t *paging_root)
     {
         paging::unmap((void *)stack_top_address, stack_pages, paging_root, [](void *phisical_address, bool big_pages)
-                      { return paging::free_frame(phisical_address); },
+                      { paging::free_frame(phisical_address); },
                       false);
         paging::unmap((void *)system_stack_top_address, stack_pages, paging_root, [](void *phisical_address, bool big_pages)
-                      { return paging::free_frame(phisical_address); },
+                      { paging::free_frame(phisical_address); },
                       false);
     }
 
-    uint64_t create_process(void *entrypoint, paging::page_table_t *paging_root, interrupt::privilege_level_t level, uint64_t father_id, void (*fin)())
+    ozone::pid_t create_process(void *entrypoint, paging::page_table_t *paging_root, interrupt::privilege_level_t level, ozone::pid_t father_id, mapping_history_t *mapping_history, void (*fin)())
     {
         if (process_count < MAX_PROCESS_NUMBER)
         {
@@ -285,11 +614,16 @@ namespace multitasking
             process_array[process_id].context = context;
             process_array[process_id].waiting_head = process_array[process_id].waiting_tail = nullptr;
 
+            process_array[process_id].signal_descriptor = signal_handling_descriptor_t{};
+
+            process_array[process_id].shmem_history = nullptr; //init without shm mappings, they are not inherited
+            process_array[process_id].mapping_history = mapping_history;
+
             process_array[process_id].process_heap = heap{(void *)(level == interrupt::privilege_level_t::user ? stack_top_address : system_stack_top_address), 1024 * 1024};
             process_array[process_id].next = nullptr;
 
             paging::set_current_trie(last_trie);
-            debug::log(debug::level::inf, "Process %uld created, level: %s", process_id, level == interrupt::privilege_level_t::user ? "user" : "system");
+            debug::log(debug::level::inf, "Process %uld created, level: %s, father_id: %uld", process_id, level == interrupt::privilege_level_t::user ? "user" : "system", father_id);
             process_count++;
             add_ready(process_id);
             return process_id;
@@ -336,7 +670,7 @@ namespace multitasking
         return removed;
     }
 
-    void destroy_semaphore(uint64_t id)
+    void destroy_semaphore(ozone::semid_t id)
     {
         semaphore_array[id].is_present = false;
 
@@ -345,25 +679,46 @@ namespace multitasking
             add_ready(pop_from_list(semaphore_array[id].waiting_list_head, semaphore_array[id].waiting_list_tail));
         }
     }
-    void destroy_process(uint64_t id)
+    void destroy_process(ozone::pid_t id)
     {
         if (process_array[id].is_present)
         {
             paging::set_current_trie(&paging::identity_l4_table);
-            process_array[id].is_present = false;
             destroy_stack(process_array[id].paging_root);
+
+            while (process_array[id].shmem_history)
+            {
+                if (shm_array[process_array[id].shmem_history->id].owner_id == id)
+                {
+                    shm_array[process_array[id].shmem_history->id].orphan = true;
+                    shm_array[process_array[id].shmem_history->id].owner_id = MAX_PROCESS_NUMBER;
+                }
+                shm_detach(id, process_array[id].shmem_history->id);
+            }
+
             if (process_array[id].father_id == MAX_PROCESS_NUMBER)
             {
-                paging::destroy_paging_trie(process_array[id].paging_root);
+                while (process_array[id].mapping_history)
+                {
+                    auto to_delete = process_array[id].mapping_history;
+                    process_array[id].mapping_history = process_array[id].mapping_history->next;
+
+                    paging::unmap(
+                        to_delete->starting_address, to_delete->npages, process_array[id].paging_root, [](void *phisical_address, bool big_pages)
+                        { return paging::free_frame(phisical_address); },
+                        false);
+                    system_heap.free(to_delete);
+                }
             }
             else
             {
-                for (uint64_t i = 0; i < 512; i++)
+                for (mapping_history_t *p = process_array[id].mapping_history; p; p = p->next)
                 {
-                    process_array[id].paging_root->set_entry(i, nullptr, 0);
+                    paging::unmap(
+                        p->starting_address, p->npages, process_array[id].paging_root, [](void *, bool) {}, p->flags & paging::flags::BIG);
                 }
-                paging::free_table(process_array[id].paging_root);
             }
+            paging::destroy_paging_trie(process_array[id].paging_root);
             process_count--;
             for (uint64_t i = 0; i < MAX_SEMAPHORE_NUMBER; i++)
             {
@@ -379,6 +734,7 @@ namespace multitasking
                     destroy_process(i);
                 }
             }
+            process_array[id].is_present = false;
             //check if the process is present in some list, in case remove it
             remove_not_present(ready_queue, last_ready);
             for (uint64_t i = 0; i < MAX_SEMAPHORE_NUMBER; i++)
@@ -395,7 +751,7 @@ namespace multitasking
         }
     }
 
-    bool is_process_memory(void *start, size_t len, uint64_t id)
+    bool is_process_memory(void *start, size_t len, ozone::pid_t id)
     {
         uint64_t s = (uint64_t)start;
         if (!process_array[id].is_present)
@@ -423,9 +779,9 @@ namespace multitasking
     }
 
     volatile uint64_t scheduler_timer_ticks = 0;
-    uint64_t next_present_process()
+    ozone::pid_t next_present_process()
     {
-        uint64_t id;
+        ozone::pid_t id;
         do
         {
             id = pop_ready();

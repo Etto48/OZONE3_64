@@ -51,8 +51,9 @@ namespace modules
 	// heap_size byte di heap dopo l'ultimo indirizzo virtuale usato.
 	//
 	// 'flags' dovrebbe essere BIT_US oppure zero.
-	void (*load_module(multiboot_module_t *mod, paging::page_table_t *root_tab, interrupt::privilege_level_t privilege_level))()
+	void (*load_module(multiboot_module_t *mod, paging::page_table_t *root_tab, interrupt::privilege_level_t privilege_level, multitasking::mapping_history_t *&mapping_history))()
 	{
+		mapping_history = nullptr;
 		// puntatore all'intestazione ELF
 		Elf64_Ehdr *elf_h = reinterpret_cast<Elf64_Ehdr *>(mod->mod_start);
 		// indirizzo fisico della tabella dei segmenti
@@ -96,17 +97,24 @@ namespace modules
 				flags |= paging::flags::RW;
 
 			// mappiamo il segmento
-			auto map_ret = paging::map(
-				(void *)virt_beg,
-				(virt_end - virt_beg) / 0x1000,
-				flags,
-				root_tab,
-				copy_segment{mod_beg, mod_end, virt_beg});
-			if (map_ret != (void *)0xFFFFFFFFFFFFFFFF)
+			if (paging::map(
+					(void *)virt_beg,
+					(virt_end - virt_beg) / 0x1000,
+					flags,
+					root_tab,
+					copy_segment{mod_beg, mod_end, virt_beg}) != (void *)0xFFFFFFFFFFFFFFFF)
 			{
 				//printf("\nMAP ERROR %p",map_ret);
 				return nullptr;
 			};
+			auto new_map = (multitasking::mapping_history_t *)system_heap.malloc(sizeof(multitasking::mapping_history_t));
+			new_map->next = mapping_history;
+			new_map->npages = (virt_end - virt_beg) / 0x1000;
+			new_map->starting_address = (void *)virt_beg;
+			new_map->flags = flags;
+
+			mapping_history = new_map;
+
 			//flog(LOG_INFO, " - segmento %s %s mappato a [%p, %p)",
 			//		(flags & BIT_US) ? "utente " : "sistema",
 			//		(flags & BIT_RW) ? "read/write" : "read-only ",

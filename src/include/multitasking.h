@@ -10,21 +10,93 @@ namespace multitasking
     {
         idle, normal
     };*/
+    //contains the data used to call and return from a signal
+    struct signal_handling_descriptor_t
+    {
+        bool is_running_a_signal = false;
+        interrupt::context_t saved_context;
+        void(*SIGTERM_handler)() = nullptr;
+        void(*SIGSEGV_handler)() = nullptr;
+        void(*SIGILL_handler)() = nullptr;
+        void(*SIGINT_handler)() = nullptr;
+        void(*SIGUSR1_handler)() = nullptr;
+        void(*SIGUSR2_handler)() = nullptr;
+
+        void(*return_from_signal)() = nullptr;
+    };
+
+    //describes one memory mapping containing the process code and data (those are done at the start of the process)
+    struct mapping_history_t
+    {
+        void* starting_address;
+        uint16_t flags;
+        uint64_t npages;
+
+        mapping_history_t* next = nullptr;
+    };
+
+    struct shmem_attaching_history_t
+    {
+        void* starting_address;
+        ozone::shmid_t id = ozone::INVALID_SHAREDMEMORY;
+
+        shmem_attaching_history_t* next = nullptr;
+    };
+
+    
+
+    //contains the state of a process
     struct process_descriptor_t
     {
         bool is_present = false;
-        uint64_t id;
-        uint64_t father_id;
+        ozone::pid_t id;
+        ozone::pid_t father_id;
         interrupt::privilege_level_t level;
-        //uint64_t priority;
         interrupt::context_t context;
         paging::page_table_t *paging_root; //cr3 register
+
+        shmem_attaching_history_t* shmem_history = nullptr;//we save every call to shmat()
+        mapping_history_t* mapping_history = nullptr; //we save every call of map() needed to allocate the code+data memory of the program, so we can later unmap
+
         heap process_heap;
 
+        //used for the join function
         process_descriptor_t *waiting_head = nullptr;
         process_descriptor_t *waiting_tail = nullptr;
 
+        //used for signaling
+        signal_handling_descriptor_t signal_descriptor;
+
         process_descriptor_t *next = nullptr;
+    };
+    
+    //describes a shared memory unit, has every frame memorized in a linked list
+    struct shm_descriptor_t
+    {
+        bool is_present = false;
+        bool orphan = false;
+        uint64_t npages;
+        ozone::pid_t owner_id;
+        uint64_t users = 0;
+        
+        uint16_t owner_flags = 0;
+        uint16_t user_flags = 0;
+
+        process_descriptor_t* waiting_head = nullptr;
+        process_descriptor_t* waiting_tail = nullptr;
+
+        uint64_t first_frame_index = paging::FRAME_COUNT;
+    };
+    
+    struct semaphore_descriptor_t
+    {
+        bool is_present = false;
+        int64_t count;
+
+        ozone::pid_t creator_id;
+
+        process_descriptor_t *waiting_list_head = nullptr;
+        process_descriptor_t *waiting_list_tail = nullptr;
     };
 
     struct tss_t
@@ -46,16 +118,7 @@ namespace multitasking
         uint16_t iopb_offset;
     } __attribute__((packed));
 
-    struct semaphore_descriptor_t
-    {
-        bool is_present = false;
-        int64_t count;
-
-        uint64_t creator_id;
-
-        process_descriptor_t *waiting_list_head = nullptr;
-        process_descriptor_t *waiting_list_tail = nullptr;
-    };
+    
 
     extern volatile uint64_t scheduler_timer_ticks;
     constexpr uint64_t timesharing_interval = 10;
@@ -67,12 +130,17 @@ namespace multitasking
     constexpr uint64_t system_stack_bottom_address = 0xfffffffffaffffff;
     constexpr uint64_t system_stack_top_address = system_stack_bottom_address - (stack_pages * 0x1000 - 1);
 
-    constexpr uint64_t MAX_PROCESS_NUMBER = 1024;
-    constexpr uint64_t MAX_SEMAPHORE_NUMBER = 1024;
+    constexpr ozone::pid_t MAX_PROCESS_NUMBER = ozone::INVALID_PROCESS;
+    constexpr ozone::semid_t MAX_SEMAPHORE_NUMBER = ozone::INVALID_SEMAPHORE;
+    constexpr ozone::shmid_t MAX_SHAREDMEMORY_NUMBER = ozone::INVALID_SHAREDMEMORY;
+
     constexpr bool force_panic = false;
+
     extern process_descriptor_t process_array[MAX_PROCESS_NUMBER];
     extern semaphore_descriptor_t semaphore_array[MAX_SEMAPHORE_NUMBER];
-    extern volatile uint64_t execution_index;
+    extern shm_descriptor_t shm_array[MAX_SHAREDMEMORY_NUMBER];
+
+    extern volatile ozone::pid_t execution_index;
     extern volatile uint64_t process_count;
 
     extern process_descriptor_t *ready_queue;
@@ -84,12 +152,13 @@ namespace multitasking
 
     extern "C" uint64_t sys_stack_location;
 
-    uint64_t get_available_index();
-    uint64_t get_available_semaphore();
+    ozone::pid_t get_available_index();
+    ozone::semid_t get_available_semaphore();
+    ozone::shmid_t get_available_shmemory();
 
-    uint64_t create_semaphore(int64_t starting_count);
-    void acquire_semaphore(uint64_t semaphore_id);
-    void release_semaphore(uint64_t semaphore_id);
+    ozone::semid_t create_semaphore(int64_t starting_count);
+    void acquire_semaphore(ozone::semid_t semaphore_id);
+    void release_semaphore(ozone::semid_t semaphore_id);
 
     //fork syscall helper
     uint64_t fork(uint64_t process_id, void (*main)(), void (*exit)());
@@ -97,25 +166,52 @@ namespace multitasking
     //exit syscall helper
     void exit(uint64_t ret);
 
+    //kill a process (SIGKILL)
+    void kill(ozone::pid_t process_id);
+
+    //used by signal to prepare the process for the handler
+    void call_signal_handler(ozone::pid_t process_id, void(*handler)());
+
     //join syscall helper
-    uint64_t join(uint64_t pid);
+    uint64_t join(ozone::pid_t pid);
 
     //driver_call syscall helper
-    uint64_t driver_call(uint64_t driver_id, uint64_t function_id);
+    ozone::pid_t driver_call(uint64_t driver_id, uint64_t function_id);
+
+    //signal syscall helper
+    bool signal(ozone::pid_t source_process, ozone::signal_t signal, ozone::pid_t target_process);
+
+    //set_signal_handler syscall helper
+    void set_signal_handler(ozone::pid_t process_id, ozone::signal_t signal,void(*handler)(), void(*return_from_signal)());
+
+    //return_from_signal syscall helper
+    void return_from_signal(ozone::pid_t process_id);
+
+    //shm_get syscall helper
+    ozone::shmid_t shm_get(ozone::pid_t owner_id, bool user_rw, size_t size);
+
+    //shm_destroy syscall helper
+    void shm_wait_and_destroy(ozone::shmid_t id);
+
+    //shm_attach
+    void* shm_attach(ozone::pid_t source_process, ozone::shmid_t id);
+
+    //shm_detach
+    bool shm_detach(ozone::pid_t source_process, ozone::shmid_t id);
 
     void init_process_array();
 
-    uint64_t pop_ready();
-    void add_ready(uint64_t process_id);
+    ozone::pid_t pop_ready();
+    void add_ready(ozone::pid_t process_id);
 
     void *create_stack(paging::page_table_t *paging_root);
     void destroy_stack(paging::page_table_t *paging_root);
 
-    uint64_t create_process(void *entrypoint, paging::page_table_t *paging_root, interrupt::privilege_level_t level, uint64_t father_id, void (*fin)() = user::fin);
-    void destroy_process(uint64_t id);
+    ozone::pid_t create_process(void *entrypoint, paging::page_table_t *paging_root, interrupt::privilege_level_t level, ozone::pid_t father_id, mapping_history_t* mapping_history,void (*fin)() = ozone::user::fin);
+    void destroy_process(ozone::pid_t id);
 
     //returns true if the selected memory space is accessible by the process, false if it's not
-    bool is_process_memory(void *start, size_t len, uint64_t id);
+    bool is_process_memory(void *start, size_t len, ozone::pid_t id);
 
     //updates execution_index with the index of the next process to run
     void scheduler();

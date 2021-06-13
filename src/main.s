@@ -4,15 +4,22 @@ _start:
     jmp multiboot_entry
 
 .align  4
+.set FLAGS, 0x1 & 0x2 & 0x4
 multiboot_header:
-     .long   0x1BADB002
-     .long   0x3
-     .long   -(0x1BADB002 + 0x3)
-     .long   multiboot_header
-     .long   _start
-     .long   _edata
-     .long   _end
-     .long   multiboot_entry
+     .long   0x1BADB002 #magic
+     .long   FLAGS#page_align - memory info - video info
+     .long   -(0x1BADB002 + FLAGS) #checksum
+     .long   multiboot_header #header_addr
+     .long   _start #load_addr
+     .long   _edata #load_end_addr
+     .long   _end #bss_end_addr
+     .long   multiboot_entry #endtry_addr
+     .long  0 #mode_type
+     .long  1024 #width
+     .long  768 #height
+     .long  32 #depth
+
+    .space 4 * 13
 
 multiboot_entry:
 

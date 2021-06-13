@@ -5,22 +5,21 @@ extern "C" void kmain()
     clear(0x07);
     debug::init();
     debug::log(debug::level::inf, "---- OZONE for AMD64 ----");
-    printf("\033c\x70Welcome to OZONE3 for AMD64!\n");
+    printf("\e[47;30mWelcome to OZONE3 for AMD64!\n\e[0m");
     paging::init_frame_mapping(&boot_info::mbi);
-    printf("\033c\x02"
-           "Frame mapping initialized\n");
+    printf("\e[32mFrame mapping initialized\e[0m\n");
     printf("  kernel frames: %uld\n", paging::kernel_frames);
     printf("  secondary frames: %uld\n", paging::secondary_frames);
     printf("  available memory: %uld B\n", paging::free_frames * 0x1000);
     uint64_t ret = (uint64_t)paging::extend_identity_mapping();
-    printf("\033c\x02Identity mapping extended\n");
+    printf("\e[32mIdentity mapping extended\e[0m\n");
     printf("  available memory: %uld B\n", paging::free_frames * 0x1000);
     interrupt::init_interrupts();
-    printf("\033c\x02Interrupts initialized\n");
+    printf("\e[32mInterrupts initialized\e[0m\n");
     multitasking::init_process_array();
-    printf("\033c\x02Process array initialized\n");
+    printf("\e[32mProcess array initialized\e[0m\n");
 
-    multitasking::create_process((void *)kernel::init, &paging::identity_l4_table, interrupt::privilege_level_t::system, multitasking::MAX_PROCESS_NUMBER);
+    multitasking::create_process((void *)kernel::init, &paging::identity_l4_table, interrupt::privilege_level_t::system, multitasking::MAX_PROCESS_NUMBER,nullptr);
 
     if (boot_info::mbi.flags & MULTIBOOT_INFO_MODS && boot_info::mbi.mods_count >= 1)
     {
@@ -30,20 +29,30 @@ extern "C" void kmain()
             auto &modr = ((multiboot_module_t *)(uint64_t)boot_info::mbi.mods_addr)[mn];
             auto ptrie = paging::create_paging_trie();
             auto level = mn == 0 ? interrupt::privilege_level_t::system : interrupt::privilege_level_t::user;
-            auto entry = modules::load_module(&modr, ptrie, level);
+            multitasking::mapping_history_t* mh;
+            auto entry = modules::load_module(&modr, ptrie, level, mh);
             if (entry == nullptr)
-                printf("  \033c\x0cModule %uld failed to load\n", mn);
+                printf("  \e[31mModule %uld failed to load\e[0m\n", mn);
             else
             {
-                auto pid = multitasking::create_process((void *)entry, ptrie, level, multitasking::MAX_PROCESS_NUMBER);
+                auto pid = multitasking::create_process((void *)entry, ptrie, level, multitasking::MAX_PROCESS_NUMBER, mh);
                 printf("  Module %s(%uld) loaded as process %uld\n", modr.cmdline, mn, pid);
             }
         }
     }
     else
     {
-        printf("\033c\x0cNo modules found\0330\n");
+        printf("\e[31mcNo modules found\e[0m\n");
     }
 
-    user::sys_call_n(0); //create an interrupt to switch to multitasking mode
+    if(boot_info::mbi.flags & MULTIBOOT_INFO_VBE_INFO)
+    {
+        printf("\e[35mFramebuffer found at 0x%p, %udx%ud colors:%ud\e[0m\n",boot_info::mbi.framebuffer_addr,boot_info::mbi.framebuffer_width,boot_info::mbi.framebuffer_height,boot_info::mbi.framebuffer_palette_num_colors);
+    }
+    else
+    {
+        printf("Framebuffer not found\n");
+    }
+
+    ozone::user::sys_call_n(0); //create an interrupt to switch to multitasking mode
 }

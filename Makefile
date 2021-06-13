@@ -87,6 +87,9 @@ $(OBJ_DIR)/%.cpp.o: $(LIB_DIR)/%.cpp lib/ozone.h
 clean:
 	@echo Cleaning Object Files
 	@rm -f $(OBJ_DIR)/*.o
+	@rm -f $(BIN_DIR)/*.bin
+	@rm -f $(BIN_DIR)/isodir/boot/*.bin
+	@rm -f $(MOD_BIN)/*.bin
 	@rm -f $(OBJ_DIR)/*.a
 	@rm -f $(MOD_OBJ)/*.o
 

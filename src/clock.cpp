@@ -9,7 +9,7 @@ namespace clock
 
     struct process_timer_t
     {
-        uint64_t id;
+        ozone::pid_t id;
         uint64_t ticks;
 
         process_timer_t *next;
@@ -70,7 +70,7 @@ namespace clock
         }
     }
 
-    void add_timer_recursive(uint64_t id, uint64_t ticks, process_timer_t *&list)
+    void add_timer_recursive(ozone::pid_t id, uint64_t ticks, process_timer_t *&list)
     {
         if ((!list) || (ticks < list->ticks))
         {

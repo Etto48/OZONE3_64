@@ -1,6 +1,7 @@
 #include "include/printing.h"
 
 uint8_t curx = 0, cury = 0;
+uint8_t saved_curx = 0, saved_cury = 0;
 uint8_t default_color = 0x07;
 void put_char(char c, uint8_t color, uint8_t x, uint8_t y)
 {
@@ -29,32 +30,370 @@ void kscroll()
 	}
 }
 
-void parse_ansi(const char *&str)
-{//wip
-	switch (*++str)
+uint64_t get_number(const char *&str)
+{
+	uint64_t len = 0;
+	while (*str >= '0' && *str <= '9')
 	{
-	case '0':
-		switch (*++str)
-		{
-			case 'J'://clear from cursor to endscreen
-				break;
-			case 'K'://clear from cursor to end of line
-				break;
-			case 'm'://reset modes
-				break;
-		}
-		break;
-	case 'm':
-		break;
-	case ';':
-		parse_ansi(str);
-		break;
+		len++;
+		str++;
 	}
+	uint64_t ret = 0;
+	uint64_t mult = 1;
+	for (uint64_t i = 1; i <= len; i++)
+	{
+		ret += (str[-i] - '0') * mult;
+		mult *= 10;
+	}
+	return ret;
+}
+
+bool set_color(uint64_t num, const char *&str)
+{
+	if (num >= 30 && num <= 39) //foreground
+	{
+		switch (num - 30)
+		{
+		case 0: //black
+			default_color = default_color & 0xf0 | 0;
+			break;
+		case 1: //red
+			default_color = default_color & 0xf0 | 0x04;
+			break;
+		case 2: //green
+			default_color = default_color & 0xf0 | 0x02;
+			break;
+		case 3: //yellow
+			default_color = default_color & 0xf0 | 0x06;
+			break;
+		case 4: //blue
+			default_color = default_color & 0xf0 | 0x01;
+			break;
+		case 5: //magenta
+			default_color = default_color & 0xf0 | 0x05;
+			break;
+		case 6: //cyan
+			default_color = default_color & 0xf0 | 0x03;
+			break;
+		case 7: //white
+			default_color = default_color & 0xf0 | 0x07;
+			break;
+		case 8: //all vga colors
+		{
+			if (*str != ';')
+				return false;
+			auto mode_num = get_number(++str);
+			if (*str != ';')
+				return false;
+
+			if (mode_num == 5)
+			{
+				auto color_number = get_number(++str);
+				switch (color_number)
+				{
+				case 0:
+					default_color = default_color & 0xf0 | 0x0;
+					break;
+				case 1:
+					default_color = default_color & 0xf0 | 0x4;
+					break;
+				case 2:
+					default_color = default_color & 0xf0 | 0x2;
+					break;
+				case 3:
+					default_color = default_color & 0xf0 | 0x6;
+					break;
+				case 4:
+					default_color = default_color & 0xf0 | 0x1;
+					break;
+				case 5:
+					default_color = default_color & 0xf0 | 0x5;
+					break;
+				case 6:
+					default_color = default_color & 0xf0 | 0x3;
+					break;
+				case 7:
+					default_color = default_color & 0xf0 | 0x7;
+					break;
+				case 8:
+					default_color = default_color & 0xf0 | 0x8;
+					break;
+				case 9:
+					default_color = default_color & 0xf0 | 0xc;
+					break;
+				case 10:
+					default_color = default_color & 0xf0 | 0xa;
+					break;
+				case 11:
+					default_color = default_color & 0xf0 | 0xe;
+					break;
+				case 12:
+					default_color = default_color & 0xf0 | 0x9;
+					break;
+				case 13:
+					default_color = default_color & 0xf0 | 0xd;
+					break;
+				case 14:
+					default_color = default_color & 0xf0 | 0xb;
+					break;
+				case 15:
+					default_color = default_color & 0xf0 | 0xf;
+					break;
+				default:
+					return false;
+					break;
+				}
+			}
+			break;
+		}
+		case 9: //default
+			default_color = default_color & 0xf0 | 0x07;
+			break;
+		}
+	}
+	else if (num >= 40 && num <= 49) //background
+	{
+		switch (num - 40)
+		{
+		case 0: //black
+			default_color = default_color & 0x0f | 0;
+			break;
+		case 1: //red
+			default_color = default_color & 0x0f | 0x40;
+			break;
+		case 2: //green
+			default_color = default_color & 0x0f | 0x20;
+			break;
+		case 3: //yellow
+			default_color = default_color & 0x0f | 0x60;
+			break;
+		case 4: //blue
+			default_color = default_color & 0x0f | 0x10;
+			break;
+		case 5: //magenta
+			default_color = default_color & 0x0f | 0x50;
+			break;
+		case 6: //cyan
+			default_color = default_color & 0x0f | 0x30;
+			break;
+		case 7: //white
+			default_color = default_color & 0x0f | 0x70;
+			break;
+		case 8: //all vga colors
+		{
+			if (*str != ';')
+				return false;
+			auto mode_num = get_number(++str);
+			if (*str != ';')
+				return false;
+			if (mode_num == 5)
+			{
+				auto color_number = get_number(++str);
+				switch (color_number)
+				{
+				case 0:
+					default_color = default_color & 0x0f | 0x00;
+					break;
+				case 1:
+					default_color = default_color & 0x0f | 0x40;
+					break;
+				case 2:
+					default_color = default_color & 0x0f | 0x20;
+					break;
+				case 3:
+					default_color = default_color & 0x0f | 0x60;
+					break;
+				case 4:
+					default_color = default_color & 0x0f | 0x10;
+					break;
+				case 5:
+					default_color = default_color & 0x0f | 0x50;
+					break;
+				case 6:
+					default_color = default_color & 0x0f | 0x30;
+					break;
+				case 7:
+					default_color = default_color & 0x0f | 0x70;
+					break;
+				case 8:
+					default_color = default_color & 0x0f | 0x80;
+					break;
+				case 9:
+					default_color = default_color & 0x0f | 0xc0;
+					break;
+				case 10:
+					default_color = default_color & 0x0f | 0xa0;
+					break;
+				case 11:
+					default_color = default_color & 0x0f | 0xe0;
+					break;
+				case 12:
+					default_color = default_color & 0x0f | 0x90;
+					break;
+				case 13:
+					default_color = default_color & 0x0f | 0xd0;
+					break;
+				case 14:
+					default_color = default_color & 0x0f | 0xb0;
+					break;
+				case 15:
+					default_color = default_color & 0x0f | 0xf0;
+					break;
+				default:
+					return false;
+					break;
+				}
+			}
+			break;
+		}
+		case 9: //default
+			default_color = default_color & 0x0f | 0;
+			break;
+		}
+	}
+	else if (num == 0 && *str == 'm')
+	{
+		default_color = 0x07;
+	}
+	else
+	{
+		return false;
+	}
+	if (*str == ';')
+		return set_color(get_number(++str), str);
+	else if (*str != 'm')
+		return false;
+	return true;
+}
+
+bool parse_ansi(const char *&str)
+{									//wip
+	if (*str >= '0' && *str <= '9') //it's a number
+	{
+		auto num = get_number(str);
+		switch (*str)
+		{
+		case 'K': //erase line
+			switch (num)
+			{
+			case 0: //clear from here to end line
+				for (uint8_t i = curx; i < 80; i++)
+					put_char(' ', default_color, i, cury);
+				break;
+			case 1: //clear from line beginning to here
+				for (uint8_t i = 0; i <= curx; i++)
+					put_char(' ', default_color, i, cury);
+				break;
+			case 2: //clear from line beginning to end line
+				for (uint8_t i = 0; i < 80; i++)
+					put_char(' ', default_color, i, cury);
+				break;
+			default: //error
+				return false;
+				break;
+			}
+			break;
+		case 'S': //scroll up n lines
+			for (uint8_t i = 0; i < num; i++)
+				kscroll();
+			break;
+		case 'T'://scroll down n lines
+			break;
+		case 'J': //clear display
+			switch (num)
+			{
+			case 0: //clear from here to end
+				for (uint8_t y = cury; y < 25; y++)
+					for (uint8_t x = y == cury ? curx : 0; x < 80; x++)
+						put_char(' ', default_color, x, y);
+				break;
+			case 1: //clear from beginning to here
+				for (uint8_t y = 0; y <= cury; y++)
+					for (uint8_t x = 0; x < y == cury ? curx : 80; x++)
+						put_char(' ', default_color, x, y);
+				break;
+			case 2: //clear from beginning to end
+				clear(default_color);
+				break;
+			default: //error
+				return false;
+				break;
+			}
+			break;
+		case 'A':
+			cury -= min(num, cury);
+			break;
+		case 'B':
+			cury += max(num, 25-cury);
+			break;
+		case 'C':
+			curx += max(num, 80-curx);
+			break;
+		case 'D':
+			curx -= min(num, curx);
+			break;
+		case 'E':
+			curx = 0;
+			cury += max(num, 25-cury);
+			break;
+		case 'F':
+			curx = 0;
+			cury -= min(num, cury);
+			break;
+		case 'G':
+			curx = num%80;
+			break;
+		case 'm': //change color
+		case ';': //2 or more numbers
+		{
+			auto old_color = default_color;
+			auto old_str = str;
+			if (!set_color(num, str))
+			{ //it is not a color
+				str = old_str;
+				default_color = old_color;
+				uint64_t num2 = get_number(++str);
+				switch (*str)
+				{
+				case 'H': //cursor position
+					curx = num % 80;
+					cury = num2 % 25;
+					break;
+
+				default:
+					break;
+				}
+			}
+			break;
+		}
+		default:
+			return false;
+			break;
+		}
+	}
+	else //it's not a number
+	{
+		switch (*str)
+		{
+		case 's':
+			saved_curx = curx;
+			saved_cury = cury;
+			break;
+		case 'u':
+			curx = saved_curx;
+			cury = saved_cury;
+			break;
+
+		default:
+			return false;
+			break;
+		}
+	}
+	return true;
 }
 
 void kprint(const char *string)
 {
-	uint8_t color = default_color;
 	while (*string != 0)
 	{
 		switch (*string)
@@ -62,7 +401,7 @@ void kprint(const char *string)
 		case '\n':
 			do
 			{
-				put_char(' ', color, curx++, cury);
+				put_char(' ', default_color, curx++, cury);
 			} while (curx < 80);
 			curx = 0;
 			cury++;
@@ -77,20 +416,20 @@ void kprint(const char *string)
 			{
 			case '[':
 				//ansi escape sequence
-				parse_ansi(string);
+				parse_ansi(++string);
 				break;
-			case 'c':
-				color = *++string;
-				break;
-			case '0':
-				color = default_color;
+			// case 'c':
+			// 	color = *++string;
+			// 	break;
+			// case '0':
+			// 	color = default_color;
 			default:
 				break;
 			}
 			++string;
 			break;
 		default:
-			put_char(*string++, color, curx++, cury);
+			put_char(*string++, default_color, curx++, cury);
 			cury += curx / 80;
 			curx %= 80;
 			break;
@@ -102,8 +441,6 @@ void kprint(const char *string)
 		}
 	}
 }
-
-
 
 void println(const char *str)
 {

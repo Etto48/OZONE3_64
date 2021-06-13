@@ -61,6 +61,8 @@ namespace paging
     void destroy_paging_trie(page_table_t* trie_root);
     void* virtual_to_phisical(void* virtual_address,page_table_t* trie_root);
     
+    uint16_t get_index_of_level(void*virtual_address,uint8_t level);//level must be 0,1,2,3,4 (0 is offset)
+
     extern "C" void set_current_trie(page_table_t* trie_root);
     extern "C" page_table_t* get_current_trie();
     extern "C" void* get_cr2();

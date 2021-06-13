@@ -11,73 +11,40 @@ namespace kernel
             put_char(anim[i], color, x, y);
             i++;
             i %= 4;
-            user::sleep(100);
+            ozone::user::sleep(100);
         }
-    }
-
-    /*constexpr uint64_t semaphore_init = 0xFFFFFFFF;
-    uint64_t semaphore_id = semaphore_init;
-    void test_process5()
-    {
-        user::sleep(4000);
-        test_anim(0x70,75,0);
-    }
-    void test_process4()
-    {
-        user::sleep(3000);
-        test_anim(0x70,76,0);
-    }
-    void test_process3()
-    {
-        user::sleep(2000);
-        test_anim(0x70,77,0);
-    }
-    void test_process2()
-    {
-        user::sleep(1000);
-        test_anim(0x70,78,0);
-    }*/
-    void test_process()
-    {
-        //user::sleep(1000);
-        //user::fork(test_process2);
-        //user::fork(test_process3);
-        //user::fork(test_process4);
-        //user::fork(test_process5);
-        //user::sleep(6000);
-        test_anim(0x70, 79, 0);
     }
 
     void test_ret()
     {
-        while(true)
-        {
-            printf("%c",keyboard::getc());
-        }
-    }
-
-    void nproc()
-    {
         while (true)
         {
-            printf("Number of processes: %uld    \r", multitasking::process_count);
+            printf("%c", keyboard::getc());
         }
-        printf("\n");
+    }
+    void status()
+    {
+        char anim[] = "|/-\\";
+        uint8_t i = 0;
+        while (true)
+        {
+            printf("\e[s\e[40;0H\e[30;47m\e[0KProc:%uld FreeMem:%uldMiB\e[79;0H%c\e[u\e[0m", multitasking::process_count, (paging::free_frames * 0x1000) / 0x100000, anim[i]);
+            ozone::user::sleep(200);
+            i++;
+            i %= 4;
+        }
     }
     void init()
     {
-        printf("\033c\x0b"
-               "Entered multitasking mode\n");
+        printf("\e[36mEntered multitasking mode\e[0m\n");
         apic::init();
-        printf("\033c\x02"
-               "Apic initialized\n");
+        printf("\e[32mApic initialized\e[0m\n");
         clock::init();
-        printf("\033c\x02"
-               "Clock initialized\n");
+        printf("\e[32mClock initialized\e[0m\n");
 
-        //user::fork(nproc);
-        user::fork(test_process);
-        user::fork(test_ret);
+        ozone::user::fork(status);
+        //ozone::user::fork(test_process);
+        ozone::user::fork(test_ret);
 
         while (true)
             ;

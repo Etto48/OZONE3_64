@@ -45,8 +45,8 @@ void set_kb_leds(bool caps_lock, bool num_lock, bool scroll_lock)
     io::outb(KEYBOARD_DATA_PORT, led_state);
 }
 
-uint64_t keyboard_buffer_mutex = user::INVALID_SEMAPHORE;
-uint64_t keyboard_buffer_sync = user::INVALID_SEMAPHORE;
+ozone::semid_t keyboard_buffer_mutex = ozone::INVALID_SEMAPHORE;
+ozone::semid_t keyboard_buffer_sync = ozone::INVALID_SEMAPHORE;
 
 constexpr uint64_t MAX_BUFFER_LEN = 1024;
 volatile char buffer[MAX_BUFFER_LEN] = {};
@@ -55,26 +55,26 @@ volatile uint64_t next_writing_pos = 0;
 
 uint64_t get_char()
 {
-    user::acquire_semaphore(keyboard_buffer_sync);//wait for data
-    user::acquire_semaphore(keyboard_buffer_mutex);
+    ozone::user::acquire_semaphore(keyboard_buffer_sync);//wait for data
+    ozone::user::acquire_semaphore(keyboard_buffer_mutex);
     auto ret = buffer[next_reading_pos++];
     next_reading_pos %= MAX_BUFFER_LEN;
-    user::release_semaphore(keyboard_buffer_mutex);
+    ozone::user::release_semaphore(keyboard_buffer_mutex);
     return ret;
 }
 
 int main()
 {
-    auto pid = user::get_id();
-    while (keyboard_buffer_mutex == user::INVALID_SEMAPHORE)
-        keyboard_buffer_mutex = user::create_semaphore(1);
-    while (keyboard_buffer_sync == user::INVALID_SEMAPHORE)
-        keyboard_buffer_sync = user::create_semaphore(0);
-    system::set_driver(1, pid);
-    system::set_driver_function(1, 0, get_char);
+    auto pid = ozone::user::get_id();
+    while (keyboard_buffer_mutex == ozone::INVALID_SEMAPHORE)
+        keyboard_buffer_mutex = ozone::user::create_semaphore(1);
+    while (keyboard_buffer_sync == ozone::INVALID_SEMAPHORE)
+        keyboard_buffer_sync = ozone::user::create_semaphore(0);
+    ozone::system::set_driver(1, pid);
+    ozone::system::set_driver_function(1, 0, get_char);
     while (true)
     {
-        system::wait_for_interrupt();
+        ozone::system::wait_for_interrupt();
         uint8_t scancode = io::inb(KEYBOARD_DATA_PORT);
         uint8_t state = io::inb(KEYBOARD_STATUS_PORT);
         if (state)
@@ -112,14 +112,14 @@ int main()
                 //add a char to the buffer
                 if (kb_us[scancode])
                 {
-                    user::acquire_semaphore(keyboard_buffer_mutex);
+                    ozone::user::acquire_semaphore(keyboard_buffer_mutex);
                     if (next_writing_pos + 1 % MAX_BUFFER_LEN != next_reading_pos)
                     { //we have sufficient space in the buffer
                         buffer[next_writing_pos++] = shift_is_pressed() ? kb_us_caps[scancode] : kb_us[scancode];
                         next_writing_pos %= MAX_BUFFER_LEN;
-                        user::release_semaphore(keyboard_buffer_sync);
+                        ozone::user::release_semaphore(keyboard_buffer_sync);
                     }
-                    user::release_semaphore(keyboard_buffer_mutex);
+                    ozone::user::release_semaphore(keyboard_buffer_mutex);
                 }
                 is_key_pressed[scancode] = true;
             }

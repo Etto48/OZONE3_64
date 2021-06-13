@@ -5,5 +5,5 @@ extern "C" void wrapper()
 {
     uint64_t ret = main();
     //fini();
-    user::exit(ret);
+    ozone::user::exit(ret);
 }

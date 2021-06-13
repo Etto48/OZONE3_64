@@ -172,9 +172,15 @@ namespace paging
                         {
                             if (l2->is_present(i2))
                             {
-                                if (!l2->data[i2] & flags::BIG)
+                                if (!(l2->data[i2] & flags::BIG))
                                 {
                                     auto l1 = l2->operator[](i2);
+                                    for(uint64_t i1=0;i1<512;i1++)
+                                    {
+                                        if(l1->is_present(i1))
+                                            debug::log(debug::level::wrn,"Filled page found during paging trie destruction");
+                                        l1->set_entry(i1,nullptr,0);
+                                    }
                                     free_table(l1);
                                 }
                             }
@@ -187,6 +193,31 @@ namespace paging
         }
         trie_root->set_entry(0, nullptr, 0);
         free_table(trie_root);
+    }
+
+    uint16_t get_index_of_level(void*virtual_address,uint8_t level)//level must be 0,1,2,3,4 (0 is offset)
+    {
+        switch (level)
+        {
+        case 0:
+            return ((uint64_t)virtual_address & (0x0000000000000fffUL));
+            break;
+        case 1:
+            return ((uint64_t)virtual_address & (0x00000000001ff000UL << 0)) >> (12);
+            break;
+        case 2:
+            return ((uint64_t)virtual_address & (0x00000000001ff000UL << 9)) >> (12 + 9);
+            break;
+        case 3:
+            return ((uint64_t)virtual_address & (0x00000000001ff000UL << 18)) >> (12 + 18);
+            break;
+        case 4:
+            return ((uint64_t)virtual_address & (0x00000000001ff000UL << 27)) >> (12 + 27);
+            break;
+        default:
+            return 0;
+            break;
+        }
     }
 
     interrupt::privilege_level_t get_level(void *virtual_address, page_table_t *trie_root)

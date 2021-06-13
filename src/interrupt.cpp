@@ -167,6 +167,17 @@ namespace interrupt
     {
         multitasking::save_state(context);
         multitasking::abort();
+        /*switch(context->int_num)
+        {
+            case 0:
+            case 1:
+            case 2:
+            case 3:
+            case 4:
+            case 5:
+            case 6:
+            case 7:
+        }*/
         return multitasking::load_state();
     }
     extern "C" void *irq_handler(context_t *context)

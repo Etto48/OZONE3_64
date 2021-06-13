@@ -14,7 +14,14 @@ namespace multitasking
             "new",
             "delete",
             "join",
-            "driver_call"
+            "driver_call",
+            "signal",
+            "set_signal_handler",
+            "return_from_signal",
+            "shm_get",
+            "shm_wait_and_destroy",
+            "shm_attach",
+            "shm_detach"
     };
 };
 
@@ -61,6 +68,27 @@ namespace syscalls
             break;
         case 10://driver_call
             context->rax = multitasking::driver_call(context->rdx,context->rcx);
+            break;
+        case 11://signal
+            context->rax = multitasking::signal(multitasking::execution_index,(ozone::signal_t)context->rdx,context->rcx);
+            break;
+        case 12://set_signal_handler
+            multitasking::set_signal_handler(multitasking::execution_index,(ozone::signal_t)context->rdx,(void(*)())context->rcx,(void(*)())context->r8);
+            break;
+        case 13://return_from_signal
+            multitasking::return_from_signal(multitasking::execution_index);
+            break;
+        case 14://shm_get
+            context->rax = multitasking::shm_get(multitasking::execution_index,(uint16_t)context->rdx,context->rcx);
+            break;
+        case 15://shm_wait_and_destroy
+            multitasking::shm_wait_and_destroy(context->rdx);
+            break;
+        case 16://shm_attach
+            context->rax = (uint64_t)multitasking::shm_attach(multitasking::execution_index,context->rdx);
+            break;
+        case 17://shm_detach
+            context->rax = multitasking::shm_detach(multitasking::execution_index,context->rdx);
             break;
         default:
             break;
