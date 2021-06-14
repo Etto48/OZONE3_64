@@ -28,7 +28,7 @@ namespace kernel
         uint8_t i = 0;
         while (true)
         {
-            printf("\e[s\e[40;0H\e[30;47m\e[0KProc:%uld FreeMem:%uldMiB\e[79;0H%c\e[u\e[0m", multitasking::process_count, (paging::free_frames * 0x1000) / 0x100000, anim[i]);
+            printf("\e[s\e[40;0H\e[30;47m\e[2KProc:%uld FreeMem:%uldMiB\e[79;0H%c\e[u\e[0m", multitasking::process_count, (paging::free_frames * 0x1000) / 0x100000, anim[i]);
             ozone::user::sleep(200);
             i++;
             i %= 4;

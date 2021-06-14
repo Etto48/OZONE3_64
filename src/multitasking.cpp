@@ -815,20 +815,20 @@ namespace multitasking
         auto last_exec = execution_index;
         if (ready_queue)
         {
-            do
-            {
-                execution_index = next_present_process();
-                add_ready(last_exec);
-                //debug::log(debug::level::inf,"process swapped");
-            } while (ready_queue && execution_index == 0);
+            execution_index = next_present_process();
+            add_ready(last_exec);
+            //debug::log(debug::level::inf,"process swapped");
         }
     }
 
-    void log_panic(const char *message)
-    {
-        auto context = &process_array[execution_index].context;
+    void log_panic(const char *message, interrupt::context_t* context = nullptr)
+    {   
+        if(!context)
+            context = &process_array[execution_index].context;
         debug::log(debug::level::err, "----------------------------------------");
         debug::log(debug::level::err, "Process %uld crashed", execution_index);
+        if(message)
+            debug::log(debug::level::err, "MSG: %s", message);
         if (context->int_num < 32)
             debug::log(debug::level::err, "Cause: %s (0x%x)", interrupt::isr_messages[context->int_num], context->int_info);
         else if (context->int_num >= 32 && context->int_num < 32 + 24)
@@ -847,11 +847,12 @@ namespace multitasking
         debug::log(debug::level::err, "Base pointer: 0x%p", context->rbp);
         debug::log(debug::level::err, "----------------------------------------");
     }
-    void panic(const char *message)
+    void panic(const char *message, interrupt::context_t* context)
     {
-        auto context = &process_array[execution_index].context;
+        if(!context)
+            context = &process_array[execution_index].context;
         clear(0x4f);
-        printf("\033c\xf4KERNEL PANIC\n");
+        printf("\e[48;5;15m\e[31mKERNEL PANIC\n\e[38;5;15m\e[41m");
         if (message)
             printf("MSG: %s\n", message);
         printf("Process id: %uld\n", execution_index);
@@ -889,17 +890,17 @@ namespace multitasking
         printf("RAX:0x%p RBX:0x%p\nRCX:0x%p RDX:0x%p\nRSI:0x%p RDI:0x%p\n", context->rax, context->rbx, context->rcx, context->rdx, context->rsi, context->rdi);
         printf("Stack segment: 0x%p\nStack Pointer: 0x%p\nBase pointer: 0x%p\n", context->ss, context->rsp, context->rbp);
 
-        put_char(':', 0x4f, 78, 24);
-        put_char('(', 0x4f, 79, 24);
+        printf("\e[10000B\e[10000C\e[2D\e[1A:(");
         asm volatile("hlt");
     }
 
-    void abort(const char *msg)
+    void abort(const char *msg, interrupt::context_t* context)
     {
         if (process_array[execution_index].level == interrupt::privilege_level_t::system || force_panic)
         {
             debug::log(debug::level::err, "KERNEL PANIC");
-            panic(msg);
+            log_panic(msg,context);
+            panic(msg,context);
         }
         else
         {

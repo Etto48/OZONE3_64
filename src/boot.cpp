@@ -2,7 +2,7 @@
 
 extern "C" void kmain()
 {
-    clear(0x07);
+    //clear(0x07);
     debug::init();
     debug::log(debug::level::inf, "---- OZONE for AMD64 ----");
     printf("\e[47;30mWelcome to OZONE3 for AMD64!\n\e[0m");
@@ -11,9 +11,24 @@ extern "C" void kmain()
     printf("  kernel frames: %uld\n", paging::kernel_frames);
     printf("  secondary frames: %uld\n", paging::secondary_frames);
     printf("  available memory: %uld B\n", paging::free_frames * 0x1000);
-    uint64_t ret = (uint64_t)paging::extend_identity_mapping();
+    paging::extend_identity_mapping(&boot_info::mbi);
     printf("\e[32mIdentity mapping extended\e[0m\n");
     printf("  available memory: %uld B\n", paging::free_frames * 0x1000);
+    if(boot_info::mbi.flags & MULTIBOOT_INFO_VBE_INFO)
+    {
+        set_fb((void*)(uint64_t)boot_info::mbi.framebuffer_addr,boot_info::mbi.framebuffer_width,boot_info::mbi.framebuffer_height,boot_info::mbi.framebuffer_palette_num_colors==0?0:32);
+        if(boot_info::mbi.framebuffer_palette_num_colors!=0)
+        {//graphic mode
+            //clear(0x07);
+            printf("\e[2J\e[H\n");
+        }
+        printf("\e[35mFramebuffer found at 0x%p, %udx%ud colors:%ud\e[0m\n",boot_info::mbi.framebuffer_addr,boot_info::mbi.framebuffer_width,boot_info::mbi.framebuffer_height,boot_info::mbi.framebuffer_palette_num_colors);
+    }
+    else
+    {
+        printf("Framebuffer not found\n");
+    }
+    
     interrupt::init_interrupts();
     printf("\e[32mInterrupts initialized\e[0m\n");
     multitasking::init_process_array();
@@ -45,14 +60,7 @@ extern "C" void kmain()
         printf("\e[31mcNo modules found\e[0m\n");
     }
 
-    if(boot_info::mbi.flags & MULTIBOOT_INFO_VBE_INFO)
-    {
-        printf("\e[35mFramebuffer found at 0x%p, %udx%ud colors:%ud\e[0m\n",boot_info::mbi.framebuffer_addr,boot_info::mbi.framebuffer_width,boot_info::mbi.framebuffer_height,boot_info::mbi.framebuffer_palette_num_colors);
-    }
-    else
-    {
-        printf("Framebuffer not found\n");
-    }
+    
 
     ozone::user::sys_call_n(0); //create an interrupt to switch to multitasking mode
 }

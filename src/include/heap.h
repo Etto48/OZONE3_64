@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include "memory.h"
 
+
 // descrittore di zona di memoria: descrive una zona di memoria nello heap di
 // sistema
 struct memory_descriptor_t {

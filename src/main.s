@@ -4,7 +4,8 @@ _start:
     jmp multiboot_entry
 
 .align  4
-.set FLAGS, 0x1 & 0x2 & 0x4
+.set FLAGS, 0x1 | 0x2 | 0x4 #graphics
+#.set FLAGS, 0x1 | 0x2 #text
 multiboot_header:
      .long   0x1BADB002 #magic
      .long   FLAGS#page_align - memory info - video info

@@ -76,7 +76,7 @@ namespace paging
         first_free_frame_index = kernel_frames; //it's the index of the first secondary_frame
         for (uint64_t i = first_free_frame_index + 1; i <= FRAME_COUNT; i++)
         {
-            frame_descriptors[i - 1].next_free_frame_index = i;
+                frame_descriptors[i - 1].next_free_frame_index = i;
         }
         //find filled frames and page tables
         uint64_t identity_l4_table_frame_index = get_frame_index(&identity_l4_table);
@@ -100,6 +100,10 @@ namespace paging
                 frame_descriptors[i].present_entries = 0;
             }
         }
+        //map framebuffer as not accessible
+        auto fb_size = (mbi->framebuffer_palette_num_colors==0?2:4)*mbi->framebuffer_height*mbi->framebuffer_width;
+        auto end_addr = memory::align((void*)(uint64_t)(mbi->framebuffer_addr + fb_size),0x1000);
+        frame_descriptors[get_frame_index((void*)(uint64_t)mbi->framebuffer_addr)-1].next_free_frame_index = get_frame_index(end_addr);
     }
 
     void *get_frame_address(uint64_t frame_descriptor_index)
@@ -296,10 +300,13 @@ namespace paging
         return nullptr;
     }
 
-    void *extend_identity_mapping()
+    void *extend_identity_mapping(multiboot_info_t* mbi)
     {
-        return map((void *)0x40000000, FRAME_COUNT * 0x1000 / 0x200000, flags::RW, &identity_l4_table, [](void *v_address, bool big_pages)
+        auto ret = map((void *)0x40000000, FRAME_COUNT, flags::RW, &identity_l4_table, [](void *v_address, bool big_pages)
                    { return v_address; },
-                   true);
+                   false);
+        auto ret2 = unmap((void*)(uint64_t)(mbi->framebuffer_addr),(uint64_t)memory::align((void*)(uint64_t)(mbi->framebuffer_addr + ((mbi->framebuffer_palette_num_colors==0?2:4)*mbi->framebuffer_height*mbi->framebuffer_width)),0x1000)/0x1000,&identity_l4_table,[](void*,bool){},false);
+        auto ret3 = map((void*)(uint64_t)mbi->framebuffer_addr,(uint64_t)memory::align((void*)(uint64_t)(mbi->framebuffer_addr + ((mbi->framebuffer_palette_num_colors==0?2:4)*mbi->framebuffer_height*mbi->framebuffer_width)),0x1000)/0x1000,flags::RW|flags::WRITE_THROUGH,&identity_l4_table,[](void* va,bool){return va;},false);
+        return ret;
     }
 };

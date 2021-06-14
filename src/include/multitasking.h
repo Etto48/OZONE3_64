@@ -221,9 +221,9 @@ namespace multitasking
     void next();
 
     //the current process caused a panic, system halted
-    void panic(const char *message = nullptr);
+    void panic(const char *message = nullptr, interrupt::context_t* context = nullptr);
     //kills the current process because an error occurred
-    void abort(const char *msg = nullptr);
+    void abort(const char *msg = nullptr, interrupt::context_t* context = nullptr);
     //saves context about the current running process
     void save_state(interrupt::context_t *context);
     //runs the scheduler, changes cr3 and returns the stack index

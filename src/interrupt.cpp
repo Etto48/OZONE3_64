@@ -166,7 +166,7 @@ namespace interrupt
     extern "C" void *isr_handler(context_t *context)
     {
         multitasking::save_state(context);
-        multitasking::abort();
+        multitasking::abort(nullptr,context);
         /*switch(context->int_num)
         {
             case 0:

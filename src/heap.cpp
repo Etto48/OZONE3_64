@@ -1,7 +1,22 @@
 #include "include/heap.h"
+
+namespace interrupt
+{
+	struct context_t
+    {
+        uint64_t rax, rbx, rcx, rdx,
+            rsi, rdi,
+            rbp,
+            r8, r9, r10, r11, r12, r13, r14, r15,
+            fs, gs,
+            int_num, int_info,
+            rip, cs, rflags, rsp, ss;
+    } __attribute__((packed));
+};
+
 namespace multitasking
 {
-	extern void abort(const char *msg);
+	extern void abort(const char *msg, interrupt::context_t* context= nullptr);
 };
 
 // Lo heap è composto da zone di memoria libere e occupate. Ogni zona di memoria

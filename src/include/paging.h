@@ -257,7 +257,7 @@ namespace paging
         return (void*)0xffffffffffffffff;
     }
 
-    void* extend_identity_mapping();
+    void* extend_identity_mapping(multiboot_info_t *mbi);
 };
 
 #include "interrupt.h"
