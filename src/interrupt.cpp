@@ -166,18 +166,30 @@ namespace interrupt
     extern "C" void *isr_handler(context_t *context)
     {
         multitasking::save_state(context);
-        multitasking::abort(nullptr,context);
-        /*switch(context->int_num)
+        bool solved = false;
+        if(context->int_num == 14 && !(context->int_info & 1))//page fault, unmapped memory
         {
-            case 0:
-            case 1:
-            case 2:
-            case 3:
-            case 4:
-            case 5:
-            case 6:
-            case 7:
-        }*/
+            //debug::log(debug::level::inf,"Process %uld requested an unmapped address",multitasking::execution_index);
+            auto requested_address = paging::get_cr2();
+            if(multitasking::process_array[multitasking::execution_index].level == privilege_level_t::user)
+            {
+                if((uint64_t)requested_address>multitasking::stack_top_address && (uint64_t)requested_address<multitasking::stack_bottom_address)
+                {//the process requested an address in its stack
+                    solved = multitasking::add_pages(multitasking::execution_index,(void*)((uint64_t)requested_address&~0xfff),paging::flags::RW | paging::flags::USER,1);
+                }
+                else
+                {
+                    debug::log(debug::level::wrn,"Process %uld requested memory over the maximum amount possible",multitasking::execution_index);
+                }
+            }
+        }
+        else
+        {
+            debug::log(debug::level::wrn,"ISR not handled");
+        }
+
+        if(!solved)
+            multitasking::abort(nullptr,context);
         return multitasking::load_state();
     }
     extern "C" void *irq_handler(context_t *context)

@@ -26,9 +26,27 @@ extern "C" void kmain()
     }
     else
     {
-        printf("Framebuffer not found\n");
+        printf("\e[31mFramebuffer not found\e[0m\n");
     }
+    if(boot_info::mbi.flags & MULTIBOOT_INFO_MEM_MAP)
+    {
+        printf("\e[35mMemory map found\e[0m\n");
+    }
+    else
+    {
+        printf("\e[31mMemory map not found\e[0m\n");
+    }
+    printf("\e[32mAvailable RAM:%uldMiB\e[0m\n",paging::system_memory/(1024*1024));
     
+    acpi::init();
+    printf("\e[32mACPI initialized\e[0m\n");
+    printf("  ACPI version %s\n",acpi::rsdp->first_part.revision==0?"1.0":"2.0 or higher");
+    printf("  OEM: %c%c%c%c%c%c\n",acpi::rsdp->first_part.OEMID[0],acpi::rsdp->first_part.OEMID[1],acpi::rsdp->first_part.OEMID[2],acpi::rsdp->first_part.OEMID[3],acpi::rsdp->first_part.OEMID[4],acpi::rsdp->first_part.OEMID[5]);
+    if(acpi::rsdp_is_valid)
+    {
+        printf("  RSDP checksum validated\n");
+    }
+    acpi::find_apic();
     interrupt::init_interrupts();
     printf("\e[32mInterrupts initialized\e[0m\n");
     multitasking::init_process_array();
@@ -38,12 +56,12 @@ extern "C" void kmain()
 
     if (boot_info::mbi.flags & MULTIBOOT_INFO_MODS && boot_info::mbi.mods_count >= 1)
     {
-        printf("%ud module(s) found\n", boot_info::mbi.mods_count);
+        printf("\e[32m%ud module(s) found\e[0m\n", boot_info::mbi.mods_count);
         for (uint64_t mn = 0; mn < boot_info::mbi.mods_count; mn++)
         {
             auto &modr = ((multiboot_module_t *)(uint64_t)boot_info::mbi.mods_addr)[mn];
             auto ptrie = paging::create_paging_trie();
-            auto level = mn == 0 ? interrupt::privilege_level_t::system : interrupt::privilege_level_t::user;
+            auto level = mn == memory::memcmp((void*)(uint64_t)modr.cmdline,"user",4) ? interrupt::privilege_level_t::user : interrupt::privilege_level_t::system;
             multitasking::mapping_history_t* mh;
             auto entry = modules::load_module(&modr, ptrie, level, mh);
             if (entry == nullptr)
@@ -51,7 +69,7 @@ extern "C" void kmain()
             else
             {
                 auto pid = multitasking::create_process((void *)entry, ptrie, level, multitasking::MAX_PROCESS_NUMBER, mh);
-                printf("  Module %s(%uld) loaded as process %uld\n", modr.cmdline, mn, pid);
+                printf("  Module %s(%uld) loaded as process %uld\n", (uint64_t)modr.cmdline, mn, pid);
             }
         }
     }

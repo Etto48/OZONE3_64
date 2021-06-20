@@ -21,7 +21,7 @@ int p2()
 int main()
 {
     ozone::user::sleep(4000);
-    shmid = ozone::user::shm_get(true, 0x1000);
+    shmid = ozone::user::shm_get(true, 0x100000);
     auto pid1 = ozone::user::fork(p1);
     auto pid2 = ozone::user::fork(p2);
 

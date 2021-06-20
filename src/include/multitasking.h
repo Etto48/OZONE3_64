@@ -57,7 +57,7 @@ namespace multitasking
 
         shmem_attaching_history_t* shmem_history = nullptr;//we save every call to shmat()
         mapping_history_t* mapping_history = nullptr; //we save every call of map() needed to allocate the code+data memory of the program, so we can later unmap
-
+        mapping_history_t* private_mapping_history = nullptr;
         heap process_heap;
 
         //used for the join function
@@ -123,12 +123,17 @@ namespace multitasking
     extern volatile uint64_t scheduler_timer_ticks;
     constexpr uint64_t timesharing_interval = 10;
 
-    constexpr uint64_t stack_pages = 256;
+    constexpr uint64_t stack_pages = 512 * 10; //max stack size
+    constexpr uint64_t system_stack_pages = 64;
+    constexpr uint64_t heap_pages = 128;
     constexpr uint64_t stack_bottom_address = 0xffffffffffffffff;
     constexpr uint64_t stack_top_address = stack_bottom_address - (stack_pages * 0x1000 - 1);
 
-    constexpr uint64_t system_stack_bottom_address = 0xfffffffffaffffff;
-    constexpr uint64_t system_stack_top_address = system_stack_bottom_address - (stack_pages * 0x1000 - 1);
+    constexpr uint64_t system_stack_bottom_address = stack_top_address - 1 - 0x1000;//at least one page of distance
+    constexpr uint64_t system_stack_top_address = system_stack_bottom_address - (system_stack_pages * 0x1000 - 1);
+
+    constexpr uint64_t heap_bottom_address = system_stack_top_address - 1 - 0x1000;
+    constexpr uint64_t heap_top_address = heap_bottom_address - (heap_pages * 0x1000 -1);
 
     constexpr ozone::pid_t MAX_PROCESS_NUMBER = ozone::INVALID_PROCESS;
     constexpr ozone::semid_t MAX_SEMAPHORE_NUMBER = ozone::INVALID_SEMAPHORE;
@@ -198,6 +203,9 @@ namespace multitasking
 
     //shm_detach
     bool shm_detach(ozone::pid_t source_process, ozone::shmid_t id);
+
+    //used for extending the stack returns false if failed
+    bool add_pages(ozone::pid_t target_process,void* page_address,uint8_t flags,uint64_t page_count);
 
     void init_process_array();
 

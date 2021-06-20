@@ -7,6 +7,7 @@
 #include <ps2_keyboard.h>
 #include "boot_info.h"
 #include "modules.h"
+#include "pci.h"
 
 namespace kernel
 {

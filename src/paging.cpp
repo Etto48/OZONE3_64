@@ -47,6 +47,8 @@ namespace paging
 
     frame_descriptor_t frame_descriptors[FRAME_COUNT];
     uint64_t first_free_frame_index = FRAME_COUNT;
+    uint64_t last_memory_address = 0xffffffffffffffff;
+    uint64_t system_memory = FRAME_COUNT * 0x1000;
     uint64_t kernel_frames = 0;
     uint64_t secondary_frames = 0;
     volatile uint64_t free_frames = 0;
@@ -76,13 +78,12 @@ namespace paging
         first_free_frame_index = kernel_frames; //it's the index of the first secondary_frame
         for (uint64_t i = first_free_frame_index + 1; i <= FRAME_COUNT; i++)
         {
-                frame_descriptors[i - 1].next_free_frame_index = i;
+            frame_descriptors[i - 1].next_free_frame_index = i;
         }
         //find filled frames and page tables
         uint64_t identity_l4_table_frame_index = get_frame_index(&identity_l4_table);
         for (uint64_t i = 0; i < first_free_frame_index; i++)
         {
-
             if (i == identity_l4_table_frame_index) //l4 table 1 entry
             {
                 frame_descriptors[i].present_entries = 1;
@@ -100,10 +101,37 @@ namespace paging
                 frame_descriptors[i].present_entries = 0;
             }
         }
-        //map framebuffer as not accessible
-        auto fb_size = (mbi->framebuffer_palette_num_colors==0?2:4)*mbi->framebuffer_height*mbi->framebuffer_width;
+        if (mbi->flags & MULTIBOOT_INFO_MEM_MAP)
+        {
+            free_frames = 0;
+            uint64_t true_first_frame_index = FRAME_COUNT;
+            uint64_t last_free_frame = FRAME_COUNT;
+            system_memory = 0;
+            for (uint64_t i = 0; i < mbi->mmap_length; i += sizeof(multiboot_memory_map_t))
+            {
+                auto &mmap = *((multiboot_memory_map_t *)(mbi->mmap_addr + i));
+                for (uint64_t f = get_frame_index((void *)mmap.addr); f < get_frame_index((void *)(mmap.addr + mmap.len)); f++)
+                {
+                    if (mmap.type == 1 & f >= first_free_frame_index)
+                    {
+                        if (f < true_first_frame_index)
+                            true_first_frame_index = f;
+                        if (last_free_frame != FRAME_COUNT) //link the list
+                            frame_descriptors[last_free_frame].next_free_frame_index = f;
+                        frame_descriptors[f].is_available == true;
+                        last_free_frame = f;
+                        free_frames++;
+                    }
+                }
+                if(mmap.type==1)
+                    system_memory+=mmap.len;
+            }
+            last_memory_address = (uint64_t)get_frame_address(last_free_frame) + 0x1000 - 1;
+            frame_descriptors[last_free_frame].next_free_frame_index = FRAME_COUNT;
+        }
+        /*auto fb_size = (mbi->framebuffer_palette_num_colors==0?2:4)*mbi->framebuffer_height*mbi->framebuffer_width;
         auto end_addr = memory::align((void*)(uint64_t)(mbi->framebuffer_addr + fb_size),0x1000);
-        frame_descriptors[get_frame_index((void*)(uint64_t)mbi->framebuffer_addr)-1].next_free_frame_index = get_frame_index(end_addr);
+        frame_descriptors[get_frame_index((void*)(uint64_t)mbi->framebuffer_addr)-1].next_free_frame_index = get_frame_index(end_addr);*/
     }
 
     void *get_frame_address(uint64_t frame_descriptor_index)
@@ -179,11 +207,11 @@ namespace paging
                                 if (!(l2->data[i2] & flags::BIG))
                                 {
                                     auto l1 = l2->operator[](i2);
-                                    for(uint64_t i1=0;i1<512;i1++)
+                                    for (uint64_t i1 = 0; i1 < 512; i1++)
                                     {
-                                        if(l1->is_present(i1))
-                                            debug::log(debug::level::wrn,"Filled page found during paging trie destruction");
-                                        l1->set_entry(i1,nullptr,0);
+                                        if (l1->is_present(i1))
+                                            debug::log(debug::level::wrn, "Filled page found during paging trie destruction");
+                                        l1->set_entry(i1, nullptr, 0);
                                     }
                                     free_table(l1);
                                 }
@@ -199,7 +227,7 @@ namespace paging
         free_table(trie_root);
     }
 
-    uint16_t get_index_of_level(void*virtual_address,uint8_t level)//level must be 0,1,2,3,4 (0 is offset)
+    uint16_t get_index_of_level(void *virtual_address, uint8_t level) //level must be 0,1,2,3,4 (0 is offset)
     {
         switch (level)
         {
@@ -300,13 +328,18 @@ namespace paging
         return nullptr;
     }
 
-    void *extend_identity_mapping(multiboot_info_t* mbi)
+    void *extend_identity_mapping(multiboot_info_t *mbi)
     {
-        auto ret = map((void *)0x40000000, FRAME_COUNT, flags::RW, &identity_l4_table, [](void *v_address, bool big_pages)
-                   { return v_address; },
-                   false);
-        auto ret2 = unmap((void*)(uint64_t)(mbi->framebuffer_addr),(uint64_t)memory::align((void*)(uint64_t)(mbi->framebuffer_addr + ((mbi->framebuffer_palette_num_colors==0?2:4)*mbi->framebuffer_height*mbi->framebuffer_width)),0x1000)/0x1000,&identity_l4_table,[](void*,bool){},false);
-        auto ret3 = map((void*)(uint64_t)mbi->framebuffer_addr,(uint64_t)memory::align((void*)(uint64_t)(mbi->framebuffer_addr + ((mbi->framebuffer_palette_num_colors==0?2:4)*mbi->framebuffer_height*mbi->framebuffer_width)),0x1000)/0x1000,flags::RW|flags::WRITE_THROUGH,&identity_l4_table,[](void* va,bool){return va;},false);
+        auto ret = map((void *)0x40000000, ((uint64_t)memory::align((void *)(last_memory_address + 1), 0x1000)) / 0x1000, flags::RW, &identity_l4_table, [](void *v_address, bool big_pages)
+                       { return v_address; },
+                       false);
+        if (mbi->flags & MULTIBOOT_INFO_VBE_INFO)
+        {
+            auto ret2 = unmap((void *)(uint64_t)(mbi->framebuffer_addr), (uint64_t)memory::align((void *)(uint64_t)(mbi->framebuffer_addr + ((mbi->framebuffer_palette_num_colors == 0 ? 2 : 4) * mbi->framebuffer_height * mbi->framebuffer_width)), 0x1000) / 0x1000, &identity_l4_table, [](void *, bool) {}, false);
+            auto ret3 = map((void *)(uint64_t)mbi->framebuffer_addr, (uint64_t)memory::align((void *)(uint64_t)(mbi->framebuffer_addr + ((mbi->framebuffer_palette_num_colors == 0 ? 2 : 4) * mbi->framebuffer_height * mbi->framebuffer_width)), 0x1000) / 0x1000, flags::RW | flags::WRITE_THROUGH, &identity_l4_table, [](void *va, bool)
+                            { return va; },
+                            false);
+        }
         return ret;
     }
 };

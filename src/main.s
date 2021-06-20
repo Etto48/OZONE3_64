@@ -181,7 +181,7 @@ page_table_l2:
     .skip 0x1000
 .global stack_bottom
 stack_bottom:
-    .skip 1024 * 1024 * 4 #4MiB
+    .skip 1024 * 1024 * 16 #16MiB
 .global stack_top
 stack_top:
 .global mbi

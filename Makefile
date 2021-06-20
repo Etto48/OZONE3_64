@@ -46,7 +46,7 @@ GRUB_CFG	:=	$(BIN_DIR)/isodir/boot/grub/grub.cfg
 
 BINARIES	:=	$(SO) $(foreach _mod,$(MODULES),$(MOD_BIN)/$(_mod).bin)
 
-QEMUARGS	:=	-m 1024 -serial stdio
+QEMUARGS	:=	-m 4096 -serial stdio
 
 .PHONY: dbg-server dbg clean test disk iso lib $(MODULES) all_mods $(GRUB_CFG)
 

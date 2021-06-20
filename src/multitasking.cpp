@@ -276,7 +276,7 @@ namespace multitasking
     {
         if (target_process < MAX_PROCESS_NUMBER && source_process < MAX_PROCESS_NUMBER && process_array[target_process].is_present && process_array[source_process].is_present && (process_array[source_process].level == interrupt::privilege_level_t::system || (process_array[target_process].level == interrupt::privilege_level_t::user && process_array[target_process].father_id == process_array[source_process].father_id)))
         {
-            const char *signals [] = {
+            const char *signals[] = {
                 "SIGKILL",
                 "SIGTERM",
                 "SIGSTOP",
@@ -284,8 +284,7 @@ namespace multitasking
                 "SIGSEGV",
                 "SIGILL",
                 "SIGUSR1",
-                "SIGUSR2"
-            };
+                "SIGUSR2"};
             bool do_kill = false;
             switch (signal)
             {
@@ -333,9 +332,9 @@ namespace multitasking
             default:
                 break;
             }
-            if(do_kill)
+            if (do_kill)
             {
-            debug::log(debug::level::wrn, "Process %uld terminated, reason: %s", target_process,signals[signal]);
+                debug::log(debug::level::wrn, "Process %uld terminated, reason: %s", target_process, signals[signal]);
                 kill(target_process);
             }
             return true;
@@ -543,6 +542,24 @@ namespace multitasking
         return false;
     }
 
+    bool add_pages(ozone::pid_t target_process,void* page_address,uint8_t flags,uint64_t page_count)
+    {
+        if(target_process < MAX_PROCESS_NUMBER && process_array[target_process].is_present)
+        {
+            if(paging::map(page_address,page_count,flags,process_array[target_process].paging_root,[](void*,bool){return paging::frame_alloc();},false)==(void*)0xffffffffffffffff)
+            {//success
+                auto new_history = (mapping_history_t*)system_heap.malloc(sizeof(mapping_history_t));
+                new_history->flags = flags;
+                new_history->npages = page_count;
+                new_history->starting_address = page_address;
+                new_history->next = process_array[target_process].private_mapping_history;
+                process_array[target_process].private_mapping_history = new_history;
+                return true;
+            }
+        }
+        return false;
+    }
+
     void init_process_array()
     {
         for (ozone::pid_t i = 0; i < MAX_PROCESS_NUMBER; i++)
@@ -568,6 +585,27 @@ namespace multitasking
             abort("Process system stack not created");
         return (void *)(privilege_level == interrupt::privilege_level_t::user ? stack_bottom_address : system_stack_bottom_address);
     }
+    void *create_stack(ozone::pid_t process_id, interrupt::privilege_level_t privilege_level)
+    {
+        if (privilege_level == interrupt::privilege_level_t::user)
+        {
+            uint16_t flags = paging::flags::RW | paging::flags::USER;
+            if(!add_pages(process_id,(void*)(stack_bottom_address&~0xfff),flags,1))
+                abort("Stack creation error");
+        }
+        uint16_t sys_flags = paging::flags::RW;
+        if(!add_pages(process_id,(void*)system_stack_top_address,sys_flags,system_stack_pages))
+            abort("Stack creation error");
+        return (void *)(privilege_level == interrupt::privilege_level_t::user ? stack_bottom_address : system_stack_bottom_address);
+    }
+    void *create_heap(ozone::pid_t process_id, interrupt::privilege_level_t privilege_level)
+    {
+        uint16_t flags = privilege_level == interrupt::privilege_level_t::user? (paging::flags::RW | paging::flags::USER) : (flags = paging::flags::RW);
+        if(!add_pages(process_id,(void*)heap_top_address,flags,heap_pages))
+            abort("Heap creation error");
+
+        return (void *)(heap_top_address);
+    }
     void destroy_stack(paging::page_table_t *paging_root)
     {
         paging::unmap((void *)stack_top_address, stack_pages, paging_root, [](void *phisical_address, bool big_pages)
@@ -582,11 +620,26 @@ namespace multitasking
     {
         if (process_count < MAX_PROCESS_NUMBER)
         {
+            uint64_t process_id = get_available_index();
+            process_array[process_id].is_present = true;
             //auto translated_entry = paging::virtual_to_phisical(entrypoint,paging_root);//for debug
+
+            process_array[process_id].id = process_id;
+            process_array[process_id].father_id = father_id;
+            process_array[process_id].level = level;
+            process_array[process_id].paging_root = paging_root;
+            
+            process_array[process_id].waiting_head = process_array[process_id].waiting_tail = nullptr;
+            process_array[process_id].signal_descriptor = signal_handling_descriptor_t{};
+
+            process_array[process_id].shmem_history = nullptr; //init without shm mappings, they are not inherited
+            process_array[process_id].mapping_history = mapping_history;
+            process_array[process_id].private_mapping_history = nullptr;
+
+            auto stack_base = (void *)((uint64_t)create_stack(process_id, level) - 16);
+
             auto last_trie = paging::get_current_trie();
             paging::set_current_trie(paging_root);
-
-            auto stack_base = (void *)((uint64_t)create_stack(paging_root, level) - 16);
             //interrupt::context_t* context = (interrupt::context_t*)((uint64_t)stack_base-sizeof(interrupt::context_t));
             interrupt::context_t context;
             context.ss = level == interrupt::privilege_level_t::user ? interrupt::GDT_USER_DATA_SEGMENT : 0;
@@ -604,22 +657,9 @@ namespace multitasking
             //tricks the function to call automatically user::exit() it reaches the end (it can cause a crash in user code we need to fix this later)
             *(void **)((uint64_t)stack_base) = (void *)fin;
 
-            uint64_t process_id = get_available_index();
-
-            process_array[process_id].id = process_id;
-            process_array[process_id].father_id = father_id;
-            process_array[process_id].is_present = true;
-            process_array[process_id].level = level;
-            process_array[process_id].paging_root = paging_root;
             process_array[process_id].context = context;
-            process_array[process_id].waiting_head = process_array[process_id].waiting_tail = nullptr;
-
-            process_array[process_id].signal_descriptor = signal_handling_descriptor_t{};
-
-            process_array[process_id].shmem_history = nullptr; //init without shm mappings, they are not inherited
-            process_array[process_id].mapping_history = mapping_history;
-
-            process_array[process_id].process_heap = heap{(void *)(level == interrupt::privilege_level_t::user ? stack_top_address : system_stack_top_address), 1024 * 1024};
+            
+            process_array[process_id].process_heap = heap{create_heap(process_id,level), heap_pages * 0x1000};//1MiB
             process_array[process_id].next = nullptr;
 
             paging::set_current_trie(last_trie);
@@ -684,7 +724,7 @@ namespace multitasking
         if (process_array[id].is_present)
         {
             paging::set_current_trie(&paging::identity_l4_table);
-            destroy_stack(process_array[id].paging_root);
+            //destroy_stack(process_array[id].paging_root);
 
             while (process_array[id].shmem_history)
             {
@@ -694,6 +734,14 @@ namespace multitasking
                     shm_array[process_array[id].shmem_history->id].owner_id = MAX_PROCESS_NUMBER;
                 }
                 shm_detach(id, process_array[id].shmem_history->id);
+            }
+
+            while (process_array[id].private_mapping_history)
+            {
+                auto to_remove = process_array[id].private_mapping_history;
+                process_array[id].private_mapping_history = process_array[id].private_mapping_history->next;
+                paging::unmap(to_remove->starting_address,to_remove->npages,process_array[id].paging_root,[](void* pa,bool){paging::free_frame(pa);},false);
+                system_heap.free(to_remove);
             }
 
             if (process_array[id].father_id == MAX_PROCESS_NUMBER)
@@ -821,13 +869,13 @@ namespace multitasking
         }
     }
 
-    void log_panic(const char *message, interrupt::context_t* context = nullptr)
-    {   
-        if(!context)
+    void log_panic(const char *message, interrupt::context_t *context = nullptr)
+    {
+        if (!context)
             context = &process_array[execution_index].context;
         debug::log(debug::level::err, "----------------------------------------");
         debug::log(debug::level::err, "Process %uld crashed", execution_index);
-        if(message)
+        if (message)
             debug::log(debug::level::err, "MSG: %s", message);
         if (context->int_num < 32)
             debug::log(debug::level::err, "Cause: %s (0x%x)", interrupt::isr_messages[context->int_num], context->int_info);
@@ -847,9 +895,9 @@ namespace multitasking
         debug::log(debug::level::err, "Base pointer: 0x%p", context->rbp);
         debug::log(debug::level::err, "----------------------------------------");
     }
-    void panic(const char *message, interrupt::context_t* context)
+    void panic(const char *message, interrupt::context_t *context)
     {
-        if(!context)
+        if (!context)
             context = &process_array[execution_index].context;
         clear(0x4f);
         printf("\e[48;5;15m\e[31mKERNEL PANIC\n\e[38;5;15m\e[41m");
@@ -894,13 +942,13 @@ namespace multitasking
         asm volatile("hlt");
     }
 
-    void abort(const char *msg, interrupt::context_t* context)
+    void abort(const char *msg, interrupt::context_t *context)
     {
-        if (process_array[execution_index].level == interrupt::privilege_level_t::system || force_panic)
+        if (execution_index >= MAX_PROCESS_NUMBER || process_array[execution_index].level == interrupt::privilege_level_t::system || force_panic)
         {
             debug::log(debug::level::err, "KERNEL PANIC");
-            log_panic(msg,context);
-            panic(msg,context);
+            log_panic(msg, context);
+            panic(msg, context);
         }
         else
         {

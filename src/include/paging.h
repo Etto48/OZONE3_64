@@ -29,15 +29,21 @@ namespace paging
 
     extern "C" page_table_t identity_l4_table;
 
-    union frame_descriptor_t
+    struct frame_descriptor_t
     {
-        uint64_t present_entries;//NOT FREE: number of present entries if the frame holds a page_table_t
-        uint64_t next_free_frame_index;//FREE: index of the next free frame
+        bool is_available = false;
+        union
+        {
+            uint64_t present_entries;//NOT FREE: number of present entries if the frame holds a page_table_t
+            uint64_t next_free_frame_index;//FREE: index of the next free frame
+        };
     };
 
-    constexpr uint64_t FRAME_COUNT = 0x40000 * 8;//1GiB * GiB count
+    constexpr uint64_t FRAME_COUNT = 0x40000 * 32;//1GiB * GiB count
     extern frame_descriptor_t frame_descriptors[FRAME_COUNT];
     extern uint64_t first_free_frame_index;
+    extern uint64_t last_memory_address;
+    extern uint64_t system_memory;
     extern uint64_t kernel_frames;
     extern uint64_t secondary_frames;
     extern volatile uint64_t free_frames;

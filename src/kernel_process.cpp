@@ -28,8 +28,8 @@ namespace kernel
         uint8_t i = 0;
         while (true)
         {
-            printf("\e[s\e[40;0H\e[30;47m\e[2KProc:%uld FreeMem:%uldMiB\e[79;0H%c\e[u\e[0m", multitasking::process_count, (paging::free_frames * 0x1000) / 0x100000, anim[i]);
-            ozone::user::sleep(200);
+            printf("\e[s\e[H\e[30;47m\e[2KOZONE\e[40;0HProc:%uld FreeMem:%uld/%uldKiB\e[10000C%c\e[u\e[0m", multitasking::process_count, (paging::free_frames * 0x1000) / (1024),paging::system_memory/(1024), anim[i]);
+            ozone::user::sleep(500);
             i++;
             i %= 4;
         }
@@ -43,11 +43,10 @@ namespace kernel
         printf("\e[32mClock initialized\e[0m\n");
 
         ozone::user::fork(status);
-        //ozone::user::fork(test_process);
         ozone::user::fork(test_ret);
 
         while (true)
-            ;
+            asm volatile("hlt");
     }
 
 };

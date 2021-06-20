@@ -64,7 +64,7 @@
             "label": "dbg-serv",
             "type": "shell",
             "command": "make dbg-server",
-            "problemMatcher": 
+            /*"problemMatcher": 
             {
                 "owner": "cpp",
                 "fileLocation": ["relative", "${workspaceRoot}"],
@@ -82,7 +82,7 @@
                     "beginsPattern": "^Creating (.*)$",
                     "endsPattern": "Starting Debug Server"
                 }
-            },
+            },*/
             "isBackground": true
         }
     ]

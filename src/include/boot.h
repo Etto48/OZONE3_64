@@ -10,6 +10,7 @@
 #include "kernel_process.h"
 #include "heap.h"
 #include "debug.h"
+#include "acpi.h"
 #include <ozone.h>
 
 extern "C" void kmain();
