@@ -106,42 +106,42 @@ namespace acpi
             {
             case 0:
                 debug::log(debug::level::inf,"LAPIC found");
-                printf("  LAPIC found, ID: %uld\n",(uint64_t)((local_APIC*)madt_entries_address)->APIC_id);
+                //printf("  LAPIC found, ID: %uld\n",(uint64_t)((local_APIC*)madt_entries_address)->APIC_id);
                 size = sizeof(local_APIC);
                 break;
             case 1:
                 debug::log(debug::level::inf,"IOAPIC found");
-                printf("  IOAPIC found\n");
+                //printf("  IOAPIC found\n");
                 size = sizeof(io_APIC);
                 break;
             case 2:
                 debug::log(debug::level::inf,"IOAPIC ISO found");
-                printf("  IOAPIC ISO found\n");
+                //printf("  IOAPIC ISO found\n");
                 size = sizeof(io_APIC_interrupt_source_override);
                 break;
             case 3:
                 debug::log(debug::level::inf,"IOAPIC NMI IS found");
-                printf("  IOAPIC NMI IS found\n");
+                //printf("  IOAPIC NMI IS found\n");
                 size = sizeof(io_APIC_nmi_source);
                 break;
             case 4:
                 debug::log(debug::level::inf,"LAPIC NMI found");
-                printf("  LAPIC NMI found\n");
+                //printf("  LAPIC NMI found\n");
                 size = sizeof(local_APIC_nmi_source);
                 break;
             case 5:
                 debug::log(debug::level::inf,"LAPIC AO found");
-                printf("  LAPIC AO found\n");
+                //printf("  LAPIC AO found\n");
                 size = sizeof(local_APIC_address_override);
                 break;
             case 9:
                 debug::log(debug::level::inf,"Lx2APIC found");
-                printf("  Lx2APIC found\n");
+                //printf("  Lx2APIC found\n");
                 size = sizeof(local_x2APIC);
                 break;
             default:    
                 debug::log(debug::level::wrn,"Unknown MADT entry type %ud",((MADT_entry_header*)madt_entries_address)->type);
-                printf("  Unknown MADT entry type %ud\n",((MADT_entry_header*)madt_entries_address)->type);
+                //printf("  Unknown MADT entry type %ud\n",((MADT_entry_header*)madt_entries_address)->type);
                 goto exit;
                 break;
             }

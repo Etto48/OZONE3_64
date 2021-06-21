@@ -17,7 +17,7 @@ LIBOBJFILES	:=	$(addprefix $(OBJ_DIR)/,$(patsubst %.s,%.s.o,$(notdir $(LIBASFILE
 
 linker		:=	$(SRC_DIR)/linker.ld
 
-CXXFLAGS = -ffreestanding -mcmodel=large -mno-red-zone -nostdlib -lgcc -g -Ilib -static
+CXXFLAGS = -ffreestanding -mcmodel=large -mno-red-zone -nostdlib -lgcc -g -Ilib -static -std=c++2a
 ASFLAGS = -felf64 -F dwarf -g
 
 version		:=	3.0.0

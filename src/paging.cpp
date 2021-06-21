@@ -335,8 +335,8 @@ namespace paging
                        false);
         if (mbi->flags & MULTIBOOT_INFO_VBE_INFO)
         {
-            auto ret2 = unmap((void *)(uint64_t)(mbi->framebuffer_addr), (uint64_t)memory::align((void *)(uint64_t)(mbi->framebuffer_addr + ((mbi->framebuffer_palette_num_colors == 0 ? 2 : 4) * mbi->framebuffer_height * mbi->framebuffer_width)), 0x1000) / 0x1000, &identity_l4_table, [](void *, bool) {}, false);
-            auto ret3 = map((void *)(uint64_t)mbi->framebuffer_addr, (uint64_t)memory::align((void *)(uint64_t)(mbi->framebuffer_addr + ((mbi->framebuffer_palette_num_colors == 0 ? 2 : 4) * mbi->framebuffer_height * mbi->framebuffer_width)), 0x1000) / 0x1000, flags::RW | flags::WRITE_THROUGH, &identity_l4_table, [](void *va, bool)
+            //auto ret2 = unmap((void *)(uint64_t)(mbi->framebuffer_addr), (uint64_t)memory::align((void *)(uint64_t)(mbi->framebuffer_addr + ((mbi->framebuffer_palette_num_colors == 0 ? 2 : 4) * mbi->framebuffer_height * mbi->framebuffer_width)), 0x1000) / 0x1000, &identity_l4_table, [](void *, bool) {}, false);
+            auto ret3 = map((void *)(uint64_t)mbi->framebuffer_addr, (uint64_t)memory::align((void *)(uint64_t)(mbi->framebuffer_addr + ((mbi->framebuffer_palette_num_colors == 0 ? 2 : 4) * mbi->framebuffer_height * mbi->framebuffer_width)), 0x1000) / 0x1000, flags::RW /*| flags::WRITE_THROUGH*/, &identity_l4_table, [](void *va, bool)
                             { return va; },
                             false);
         }

@@ -260,86 +260,68 @@ uint8_t g_8x8_font[2048] = {
 
 uint8_t curx = 0, cury = 0;
 uint8_t saved_curx = 0, saved_cury = 0;
-uint64_t default_color = 0xaaaaaaff000000ff;
+uint64_t default_color = 0xffaaaaaaff000000;
 
 uint64_t text_width = 80;
 uint64_t text_height = 25;
 
 uint64_t fb_width = 1024;
 uint64_t fb_height = 768;
-uint64_t fb_depth = 0;
-
-void *framebuffer_location = (void *)0xb8000;
 
 //constexpr size_t scroll_buffer_size = (1024/8)*(768/8);
 
 //uint16_t scroll_buffer[scroll_buffer_size];
-
-void set_fb(void *fb_loc, uint64_t _fb_width, uint64_t _fb_height, uint8_t _fb_depth)
+namespace printing
 {
-	fb_width = _fb_width;
-	fb_height = _fb_height;
-	fb_depth = _fb_depth;
-
-	if (fb_depth != 0)
+	void init()
 	{
+		auto screen_size = video::get_screen_size();
+		fb_width = screen_size.x;
+		fb_height = screen_size.y;
+
 		text_width = fb_width / 8;
 		text_height = fb_height / 8;
 	}
-	else
-	{
-		text_width = fb_width;
-		text_height = fb_height;
-	}
+};
 
-	framebuffer_location = fb_loc;
-}
-uint32_t rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
-{
-	return a << 24 | r << 16 | g << 8 | b;
-}
-uint32_t rgb(uint8_t r, uint8_t g, uint8_t b)
-{
-	return rgba(r, g, b, 0xff);
-}
 uint32_t color_expand(uint8_t single_color)
 {
 	switch (single_color)
 	{
 	case 0:
-		return rgb(0, 0, 0);
+		return video::rgb(0, 0, 0);
 	case 1:
-		return rgb(0, 0, 0xaa);
+		return video::rgb(0, 0, 0xaa);
 	case 2:
-		return rgb(0, 0xaa, 0);
+		return video::rgb(0, 0xaa, 0);
 	case 3:
-		return rgb(0, 0xaa, 0xaa);
+		return video::rgb(0, 0xaa, 0xaa);
 	case 4:
-		return rgb(0xaa, 0, 0);
+		return video::rgb(0xaa, 0, 0);
 	case 5:
-		return rgb(0xaa, 0, 0xaa);
+		return video::rgb(0xaa, 0, 0xaa);
 	case 6:
-		return rgb(0xaa, 0xaa, 0);
+		return video::rgb(0xaa, 0xaa, 0);
 	case 7:
-		return rgb(0xaa, 0xaa, 0xaa);
+		return video::rgb(0xaa, 0xaa, 0xaa);
 	case 8:
-		return rgb(0x55, 0x55, 0x55);
+		return video::rgb(0x55, 0x55, 0x55);
 	case 9:
-		return rgb(0x55, 0x55, 0xff);
+		return video::rgb(0x55, 0x55, 0xff);
 	case 10:
-		return rgb(0x55, 0xff, 0x55);
+		return video::rgb(0x55, 0xff, 0x55);
 	case 11:
-		return rgb(0x55, 0xff, 0xff);
+		return video::rgb(0x55, 0xff, 0xff);
 	case 12:
-		return rgb(0xff, 0x55, 0x55);
+		return video::rgb(0xff, 0x55, 0x55);
 	case 13:
-		return rgb(0xff, 0x55, 0xff);
+		return video::rgb(0xff, 0x55, 0xff);
 	case 14:
-		return rgb(0xff, 0xff, 0x55);
+		return video::rgb(0xff, 0xff, 0x55);
 	case 15:
-		return rgb(0xff, 0xff, 0xff);
+		return video::rgb(0xff, 0xff, 0xff);
 	default:
-		return rgb(0, 0, 0);
+		return video::rgb(0, 0, 0);
 	}
 }
 uint64_t color_4b_to_32b(uint8_t scolor)
@@ -355,21 +337,13 @@ void draw_char(char c, uint64_t color, uint16_t x, uint16_t y)
 		for (uint8_t dx = 0; dx < 8; dx++)
 		{
 			bool font_bit = g_8x8_font[(uint8_t)c * 8 + dy] & (0b100000000 >> dx);
-			((uint32_t *)framebuffer_location)[(x * 8 + dx) % fb_width + ((y * 8 + dy) % fb_height) * fb_width] = font_bit ? (uint32_t)color : (uint32_t)(color >> 32);
+			video::pixel({(uint64_t)x * 8 + dx, (uint64_t)y * 8 + dy}) = font_bit ? (uint32_t)color : (uint32_t)(color >> 32);
 		}
 	}
 }
 void put_char(char c, uint8_t color, uint8_t x, uint8_t y)
 {
-	if (fb_depth == 0)
-	{
-		((char *)framebuffer_location)[(x % text_width + y * text_width) * 2] = c;
-		((char *)framebuffer_location)[(x % text_width + y * text_width) * 2 + 1] = color;
-	}
-	else
-	{
-		draw_char(c, color_4b_to_32b(color), x, y);
-	}
+	draw_char(c, color_4b_to_32b(color), x, y);
 	//scroll_buffer[x+y*text_width] = c | uint16_t(color)<<8;
 }
 void put_char(char c, uint64_t color, uint8_t x, uint8_t y)
@@ -380,9 +354,10 @@ void put_char(char c, uint64_t color, uint8_t x, uint8_t y)
 void clear(uint64_t color)
 {
 	default_color = color;
-	for (uint16_t y = 0; y < text_height; y++)
-		for (uint16_t x = 0; x < text_width; x++)
-			put_char(' ', default_color, x, y);
+	video::clear((uint32_t)(color >> 32));
+	//for (uint16_t y = 0; y < text_height; y++)
+	//	for (uint16_t x = 0; x < text_width; x++)
+	//		put_char(' ', default_color, x, y);
 	curx = 0;
 	cury = 0;
 }
@@ -392,29 +367,14 @@ void clear(uint8_t color)
 }
 void kscroll()
 {
-
-	if (fb_depth == 0)
+	auto framebuffer_location = &video::pixel({0, 0});
+	for (uint64_t i = 0; i < (fb_width * (fb_height - 8)); i++)
 	{
-		for (uint32_t i = 0; i < text_width * (text_height - 1) * 2; i++)
-		{
-			((char *)framebuffer_location)[i] = ((char *)framebuffer_location)[i + text_width * 2];
-		}
-		for (uint32_t i = text_width * (text_height - 1) * 2; i < text_width * text_height * 2; i += 2)
-		{
-			((char *)framebuffer_location)[i] = ' ';
-			((char *)framebuffer_location)[i + 1] = default_color;
-		}
+		((uint32_t *)framebuffer_location)[i] = ((uint32_t *)framebuffer_location)[i + 8 * fb_width];
 	}
-	else
+	for (uint64_t i = (fb_width * (fb_height - 8)); i < (fb_width * fb_height); i++)
 	{
-		for(uint64_t i = 0; i<(fb_width*(fb_height-8));i++)
-		{
-			((uint32_t*)framebuffer_location)[i]=((uint32_t*)framebuffer_location)[i+8*fb_width];
-		}
-		for(uint64_t i = (fb_width*(fb_height-8)); i< (fb_width*fb_height) ; i++)
-		{
-			((uint32_t*)framebuffer_location)[i]=0;
-		}
+		((uint32_t *)framebuffer_location)[i] = 0;
 	}
 }
 
@@ -436,15 +396,15 @@ uint64_t get_number(const char *&str)
 	return ret;
 }
 
-void set_default_color_4b(uint8_t color,bool is_foreground)
+void set_default_color_4b(uint8_t color, bool is_foreground)
 {
-	if(is_foreground)
+	if (is_foreground)
 	{
 		default_color = default_color & 0xffffffff00000000 | color_expand(color);
 	}
 	else
 	{
-		default_color = default_color & 0xffffffff | (uint64_t(color_expand(color))<<32);
+		default_color = default_color & 0xffffffff | (uint64_t(color_expand(color)) << 32);
 	}
 }
 
@@ -455,28 +415,28 @@ bool set_color(uint64_t num, const char *&str)
 		switch (num - 30)
 		{
 		case 0: //black
-			set_default_color_4b(0,true);
+			set_default_color_4b(0, true);
 			break;
 		case 1: //red
-			set_default_color_4b(4,true);
+			set_default_color_4b(4, true);
 			break;
 		case 2: //green
-			set_default_color_4b(2,true);
+			set_default_color_4b(2, true);
 			break;
 		case 3: //yellow
-			set_default_color_4b(6,true);
+			set_default_color_4b(6, true);
 			break;
 		case 4: //blue
-			set_default_color_4b(1,true);
+			set_default_color_4b(1, true);
 			break;
 		case 5: //magenta
-			set_default_color_4b(5,true);
+			set_default_color_4b(5, true);
 			break;
 		case 6: //cyan
-			set_default_color_4b(3,true);
+			set_default_color_4b(3, true);
 			break;
 		case 7: //white
-			set_default_color_4b(7,true);
+			set_default_color_4b(7, true);
 			break;
 		case 8: //all vga colors
 		{
@@ -492,73 +452,73 @@ bool set_color(uint64_t num, const char *&str)
 				switch (color_number)
 				{
 				case 0:
-					set_default_color_4b(0,true);
+					set_default_color_4b(0, true);
 					break;
 				case 1:
-					set_default_color_4b(4,true);
+					set_default_color_4b(4, true);
 					break;
 				case 2:
-					set_default_color_4b(2,true);
+					set_default_color_4b(2, true);
 					break;
 				case 3:
-					set_default_color_4b(6,true);
+					set_default_color_4b(6, true);
 					break;
 				case 4:
-					set_default_color_4b(1,true);
+					set_default_color_4b(1, true);
 					break;
 				case 5:
-					set_default_color_4b(5,true);
+					set_default_color_4b(5, true);
 					break;
 				case 6:
-					set_default_color_4b(3,true);
+					set_default_color_4b(3, true);
 					break;
 				case 7:
-					set_default_color_4b(7,true);
+					set_default_color_4b(7, true);
 					break;
 				case 8:
-					set_default_color_4b(0+8,true);
+					set_default_color_4b(0 + 8, true);
 					break;
 				case 9:
-					set_default_color_4b(4+8,true);
+					set_default_color_4b(4 + 8, true);
 					break;
 				case 10:
-					set_default_color_4b(2+8,true);
+					set_default_color_4b(2 + 8, true);
 					break;
 				case 11:
-					set_default_color_4b(6+8,true);
+					set_default_color_4b(6 + 8, true);
 					break;
 				case 12:
-					set_default_color_4b(1+8,true);
+					set_default_color_4b(1 + 8, true);
 					break;
 				case 13:
-					set_default_color_4b(5+8,true);
+					set_default_color_4b(5 + 8, true);
 					break;
 				case 14:
-					set_default_color_4b(3+8,true);
+					set_default_color_4b(3 + 8, true);
 					break;
 				case 15:
-					set_default_color_4b(7+8,true);
+					set_default_color_4b(7 + 8, true);
 					break;
 				default:
 					return false;
 					break;
 				}
 			}
-			else if(mode_num == 2)//rgb
+			else if (mode_num == 2) //rgb
 			{
 				auto r = get_number(++str);
-				if(*str!=';')
+				if (*str != ';')
 					return false;
 				auto g = get_number(++str);
-				if(*str!=';')
+				if (*str != ';')
 					return false;
 				auto b = get_number(++str);
-				default_color = default_color & 0xffffffff00000000 | rgb(r,g,b);
+				default_color = default_color & 0xffffffff00000000 | video::rgb(r, g, b);
 			}
 			break;
 		}
 		case 9: //default
-			set_default_color_4b(7,true);
+			set_default_color_4b(7, true);
 			break;
 		}
 	}
@@ -567,28 +527,28 @@ bool set_color(uint64_t num, const char *&str)
 		switch (num - 40)
 		{
 		case 0: //black
-			set_default_color_4b(0,false);
+			set_default_color_4b(0, false);
 			break;
 		case 1: //red
-			set_default_color_4b(4,false);
+			set_default_color_4b(4, false);
 			break;
 		case 2: //green
-			set_default_color_4b(2,false);
+			set_default_color_4b(2, false);
 			break;
 		case 3: //yellow
-			set_default_color_4b(6,false);
+			set_default_color_4b(6, false);
 			break;
 		case 4: //blue
-			set_default_color_4b(1,false);
+			set_default_color_4b(1, false);
 			break;
 		case 5: //magenta
-			set_default_color_4b(5,false);
+			set_default_color_4b(5, false);
 			break;
 		case 6: //cyan
-			set_default_color_4b(3,false);
+			set_default_color_4b(3, false);
 			break;
 		case 7: //white
-			set_default_color_4b(7,false);
+			set_default_color_4b(7, false);
 			break;
 		case 8: //all vga colors
 		{
@@ -604,80 +564,80 @@ bool set_color(uint64_t num, const char *&str)
 				switch (color_number)
 				{
 				case 0:
-					set_default_color_4b(0,false);
+					set_default_color_4b(0, false);
 					break;
 				case 1:
-					set_default_color_4b(4,false);
+					set_default_color_4b(4, false);
 					break;
 				case 2:
-					set_default_color_4b(2,false);
+					set_default_color_4b(2, false);
 					break;
 				case 3:
-					set_default_color_4b(6,false);
+					set_default_color_4b(6, false);
 					break;
 				case 4:
-					set_default_color_4b(1,false);
+					set_default_color_4b(1, false);
 					break;
 				case 5:
-					set_default_color_4b(5,false);
+					set_default_color_4b(5, false);
 					break;
 				case 6:
-					set_default_color_4b(3,false);
+					set_default_color_4b(3, false);
 					break;
 				case 7:
-					set_default_color_4b(7,false);
+					set_default_color_4b(7, false);
 					break;
 				case 8:
-					set_default_color_4b(0+8,false);
+					set_default_color_4b(0 + 8, false);
 					break;
 				case 9:
-					set_default_color_4b(4+8,false);
+					set_default_color_4b(4 + 8, false);
 					break;
 				case 10:
-					set_default_color_4b(2+8,false);
+					set_default_color_4b(2 + 8, false);
 					break;
 				case 11:
-					set_default_color_4b(6+8,false);
+					set_default_color_4b(6 + 8, false);
 					break;
 				case 12:
-					set_default_color_4b(1+8,false);
+					set_default_color_4b(1 + 8, false);
 					break;
 				case 13:
-					set_default_color_4b(5+8,false);
+					set_default_color_4b(5 + 8, false);
 					break;
 				case 14:
-					set_default_color_4b(3+8,false);
+					set_default_color_4b(3 + 8, false);
 					break;
 				case 15:
-					set_default_color_4b(7+8,false);
+					set_default_color_4b(7 + 8, false);
 					break;
 				default:
 					return false;
 					break;
 				}
 			}
-			else if(mode_num == 2)//rgb
+			else if (mode_num == 2) //rgb
 			{
 				auto r = get_number(++str);
-				if(*str!=';')
+				if (*str != ';')
 					return false;
 				auto g = get_number(++str);
-				if(*str!=';')
+				if (*str != ';')
 					return false;
 				auto b = get_number(++str);
-				default_color = default_color & 0xffffffff | uint64_t(rgb(r,g,b))<<32;
+				default_color = default_color & 0xffffffff | uint64_t(video::rgb(r, g, b)) << 32;
 			}
 			break;
 		}
 		case 9: //default
-			set_default_color_4b(0,false);
+			set_default_color_4b(0, false);
 			break;
 		}
 	}
 	else if (num == 0 && *str == 'm')
 	{
-		set_default_color_4b(0,false);
-		set_default_color_4b(7,true);
+		set_default_color_4b(0, false);
+		set_default_color_4b(7, true);
 	}
 	else
 	{
@@ -746,10 +706,10 @@ bool parse_ansi(const char *&str)
 			cury -= min(num, cury);
 			break;
 		case 'B':
-			cury += min(num, text_height - cury-1);
+			cury += min(num, text_height - cury - 1);
 			break;
 		case 'C':
-			curx += min(num, text_width - curx-1);
+			curx += min(num, text_width - curx - 1);
 			break;
 		case 'D':
 			curx -= min(num, curx);

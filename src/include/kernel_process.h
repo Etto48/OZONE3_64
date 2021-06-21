@@ -8,6 +8,8 @@
 #include "boot_info.h"
 #include "modules.h"
 #include "pci.h"
+#include "video.h"
+#include "logo.h"
 
 namespace kernel
 {
