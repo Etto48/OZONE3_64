@@ -11,7 +11,10 @@ const uint16_t iCMD = 0x01F7;
 const uint16_t iSTS = 0x01F7;
 const uint16_t iDCR = 0x03F6;
 
-
+void ack()
+{
+	io::inb(iSTS);
+}
 void enable_irq()
 {
 	io::outb(iDCR, 0x00);
@@ -20,8 +23,31 @@ void disable_irq()
 {
     io::outb(iDCR, 0x02);
 }
-
-
+void wait_for_br()
+{
+	uint8_t s;
+	do
+		s = io::inb(iSTS);
+	while (s & 0x88 != 0x08);
+}
+void input_sector(uint8_t* data)
+{
+	wait_for_br();
+	auto p = (uint16_t*)data;
+	for(uint64_t i = 0; i<256; i++)
+	{
+		p[i]=io::inw(iBR);
+	}
+}
+void output_sector(uint8_t* data)
+{
+	wait_for_br();
+	auto p = (uint16_t*)data;
+	for(uint64_t i = 0; i<256; i++)
+	{
+		io::outw(iBR,p[i]);
+	}
+}
 void set_lba(uint32_t lba)
 {
 	uint8_t 
@@ -35,6 +61,12 @@ void set_lba(uint32_t lba)
 	io::outb(iCNH, lba_2);
 	uint8_t hnd = (lba_3 & 0x0F) | 0xE0;
 	io::outb(iHND, hnd);
+}
+void start_cmd(uint32_t lba, uint8_t n, uint8_t cmd)
+{
+	set_lba(lba);
+	io::outb(iSCR,n);
+	io::outb(iCMD,cmd);
 }
 
 

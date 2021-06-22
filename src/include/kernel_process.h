@@ -10,6 +10,7 @@
 #include "pci.h"
 #include "video.h"
 #include "logo.h"
+#include "loading_animation.h"
 
 namespace kernel
 {
