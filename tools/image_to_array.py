@@ -10,7 +10,6 @@ folder_name=input("Folder Name:")
 with open(folder_name+"/out.txt","w") as f:
     f.write("{\n")
     files = natsorted(os.listdir(folder_name))
-    files
     for file_name in files:
         if(file_name[-4:]==".png"):                
             I=np.asarray(Image.open(folder_name+"/"+file_name))

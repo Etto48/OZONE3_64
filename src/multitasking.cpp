@@ -874,7 +874,10 @@ namespace multitasking
         if (!context)
             context = &process_array[execution_index].context;
         debug::log(debug::level::err, "----------------------------------------");
-        debug::log(debug::level::err, "Process %uld crashed", execution_index);
+        if(execution_index==MAX_PROCESS_NUMBER)
+            debug::log(debug::level::err, "System crashed");
+        else
+            debug::log(debug::level::err, "Process %uld crashed", execution_index);
         if (message)
             debug::log(debug::level::err, "MSG: %s", message);
         if (context->int_num < 32)
@@ -900,10 +903,14 @@ namespace multitasking
         if (!context)
             context = &process_array[execution_index].context;
         clear(0x4f);
+        video::draw_image(ozone_panic_logo[0],{256,256},video::get_screen_size()-video::v2i{256,256});
         printf("\e[48;5;15m\e[31mKERNEL PANIC\n\e[38;5;15m\e[41m");
         if (message)
             printf("MSG: %s\n", message);
-        printf("Process id: %uld\n", execution_index);
+        if(execution_index!=MAX_PROCESS_NUMBER)
+            printf("Process id: %uld\n", execution_index);
+        else
+            printf("System error\n");
         printf("Cause: ");
         if (context->int_num < 32)
             printf("%s (0x%x)", interrupt::isr_messages[context->int_num], context->int_info);
@@ -938,7 +945,7 @@ namespace multitasking
         printf("RAX:0x%p RBX:0x%p\nRCX:0x%p RDX:0x%p\nRSI:0x%p RDI:0x%p\n", context->rax, context->rbx, context->rcx, context->rdx, context->rsi, context->rdi);
         printf("Stack segment: 0x%p\nStack Pointer: 0x%p\nBase pointer: 0x%p\n", context->ss, context->rsp, context->rbp);
 
-        printf("\e[10000B\e[10000C\e[2D\e[1A:(");
+        //printf("\e[10000B\e[10000C\e[2D\e[1A:(");
         asm volatile("hlt");
     }
 

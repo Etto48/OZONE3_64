@@ -38,9 +38,8 @@ namespace kernel
 
     bool startup_done = false;
     void startup_loading_anim_sigterm()
-    {
-        video::color_t zero[32*32] = {0xff000000};   
-        video::draw_image(zero, {32, 32}, video::get_screen_size() / 2 - video::v2i{32, 32} / 2 + video::v2i{0,256/2});
+    {  
+        video::draw_image(loading_animation[24], {32, 32}, video::get_screen_size() / 2 - video::v2i{32, 32} / 2 + video::v2i{0,256/2});
         ozone::user::exit(0);
     }
     void startup_loading_anim()
@@ -51,12 +50,12 @@ namespace kernel
         {
             video::draw_image(loading_animation[i++], {32, 32}, video::get_screen_size() / 2 - video::v2i{32, 32} / 2 + video::v2i{0,256/2});
             i%=24;
-            ozone::user::sleep(50);
+            ozone::user::sleep(36);
         }
     }
     void startup()
     {
-        video::draw_image(ozone_logo, {256, 256}, video::get_screen_size() / 2 - video::v2i{256, 256} / 2);
+        video::draw_image(ozone_logo[0], {256, 256}, video::get_screen_size() / 2 - video::v2i{256, 256} / 2);
         // printf("\e[%uld;%uldH[", (video::get_screen_size() / 8 / 2).x - 11, (video::get_screen_size() / 8 / 2).y + 8);
         // printf("\e[%uld;%uldH]", (video::get_screen_size() / 8 / 2).x + 10, (video::get_screen_size() / 8 / 2).y + 8);
         // for (uint64_t i = 1; i < 21; i++)
@@ -70,6 +69,12 @@ namespace kernel
         ozone::user::join(startup_loading_anim_id);
         printf("\e[%uld;%uldHWelcome to OZONE3 - 64", (video::get_screen_size() / 8 / 2).x - 11, (video::get_screen_size() / 8 / 2).y + 10);
         ozone::user::sleep(1000);
+        
+        for(uint64_t i = 0;i<8;i++)
+        {
+            video::draw_image(ozone_logo[i], {256, 256}, video::get_screen_size() / 2 - video::v2i{256, 256} / 2);
+            ozone::user::sleep(36);
+        }
         printf("\e[2J\e[H");
         startup_done = true;
     }

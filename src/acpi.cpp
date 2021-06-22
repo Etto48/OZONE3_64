@@ -74,6 +74,8 @@ namespace acpi
                     debug::log(debug::level::inf, "MADT found");
                     madt = (MADT *)(uint64_t)sdt_pointer_array[i];
                 }
+                if(madt&&fadt)
+                    break;
             }
         }
         else if (rsdp->first_part.revision == 2)

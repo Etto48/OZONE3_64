@@ -46,7 +46,7 @@ GRUB_CFG	:=	$(BIN_DIR)/isodir/boot/grub/grub.cfg
 
 BINARIES	:=	$(SO) $(foreach _mod,$(MODULES),$(MOD_BIN)/$(_mod).bin)
 
-QEMUARGS	:=	-m 4096 -serial stdio
+QEMUARGS	:=	-m 4G -serial stdio #-bios /usr/share/ovmf/OVMF.fd
 
 .PHONY: dbg-server dbg clean test disk iso lib $(MODULES) all_mods $(GRUB_CFG)
 
@@ -109,8 +109,11 @@ $(GRUB_CFG):
 	@echo Creating $@
 	@echo 'set timeout=0' > $(GRUB_CFG)
 	@echo 'set default=0' >> $(GRUB_CFG)
+	@echo 'insmod efi_gop' >> $(GRUB_CFG)
 	@echo 'menuentry "OZONE3 AMD64" {' >> $(GRUB_CFG)
 	@echo '    multiboot /boot/$(SO_NAME).bin' >> $(GRUB_CFG)
+#	@echo '    GFXMODE=1024x768' >> $(GRUB_CFG)	
+#	@echo '    GFXPAYLOAD=1024x768x32' >> $(GRUB_CFG)
 	@for module in $(MODULES) ; do \
         echo "    module /boot/$$module.bin $$module" >> $(GRUB_CFG); \
     done

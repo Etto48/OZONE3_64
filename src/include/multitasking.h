@@ -3,6 +3,7 @@
 #include "paging.h"
 #include "heap.h"
 #include <ozone.h>
+#include "ozone_panic_logo.h"
 
 namespace multitasking
 {

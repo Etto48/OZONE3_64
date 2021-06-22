@@ -3,7 +3,9 @@
 
 namespace video
 {
+
     typedef uint32_t color_t;
+
     struct v2i
     {
         uint64_t x,y;
@@ -16,6 +18,15 @@ namespace video
         v2i operator *(uint64_t l);
         v2i operator /(uint64_t l);
     };
+
+    uint8_t red(color_t c);
+    uint8_t green(color_t c);
+    uint8_t blue(color_t c);
+    uint8_t alpha(color_t c);
+
+    color_t multiply(color_t c, uint8_t a);
+    color_t multiply_colors(color_t c1, color_t c2);
+    color_t add(color_t base, color_t cover);
 
     v2i get_screen_size();
 

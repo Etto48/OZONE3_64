@@ -20,11 +20,14 @@ extern "C" void kmain()
         video::init((video::color_t*)(uint64_t)boot_info::mbi.framebuffer_addr,boot_info::mbi.framebuffer_width,boot_info::mbi.framebuffer_height);
         printing::init();
         printf("\e[37;40m\e[2J\e[H\n");
-        video::draw_image(ozone_logo,{256,256},video::get_screen_size()/2-video::v2i{256,256}/2);
+        video::draw_image(ozone_logo[0],{256,256},video::get_screen_size()/2-video::v2i{256,256}/2);
         //printf("\e[35mFramebuffer found at 0x%p, %udx%ud colors:%ud\e[0m\n",boot_info::mbi.framebuffer_addr,boot_info::mbi.framebuffer_width,boot_info::mbi.framebuffer_height,boot_info::mbi.framebuffer_palette_num_colors);
     }
     else
     {
+        video::init((video::color_t*)(uint64_t)boot_info::mbi.framebuffer_addr,boot_info::mbi.framebuffer_width,boot_info::mbi.framebuffer_height);
+        printing::init();
+        printf("\e[37;40m\e[2J\e[H\n");
         multitasking::abort("No framebuffer found");
         //printf("\e[31mFramebuffer not found\e[0m\n");
     }
